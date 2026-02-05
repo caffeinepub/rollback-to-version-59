@@ -1,0 +1,100 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Negative amount support across inputs, validation, calculations, and display",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Permit signed (negative/positive) transaction amounts in add/edit UI and persist signed values; validate amount as any non-zero number.",
+      "acceptanceCriteria": [
+        "In the Add New Transaction form, the Amount field accepts values like -100 and 100, and rejects 0 / empty / non-numeric input.",
+        "In the Edit Transaction dialog, the Amount field accepts values like -100 and 100, and rejects 0 / empty / non-numeric input.",
+        "Submitting a negative amount creates/updates a transaction whose stored amount is negative (e.g., -100 is stored/displayed as -100)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/TransactionForm.tsx",
+          "operation": "modify",
+          "description": "Update Amount input constraints to allow negative values (remove non-negative min), and update submit-time validation to allow any numeric non-zero amount (reject only 0/empty/non-numeric). Ensure the signed value is passed through unchanged when creating the transaction."
+        },
+        {
+          "path": "frontend/src/components/EditTransactionDialog.tsx",
+          "operation": "modify",
+          "description": "Update Amount input constraints to allow negative values (remove non-negative min), and update submit-time validation to allow any numeric non-zero amount (reject only 0/empty/non-numeric). Ensure the signed value is passed through unchanged when editing the transaction."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Permit signed values for opening balances and daily deduction inputs; save signed values and use them in ledger calculations without NaN/crashes.",
+      "acceptanceCriteria": [
+        "Opening Balance form accepts negative values in all amount inputs and saves them to local storage without blocking submission.",
+        "Day-wise \"Daily Deduction Amount\" input accepts negative values (e.g., -350) and saves them for the selected date.",
+        "Balances and day-wise totals reflect negative opening balances and negative deductions correctly (no crashes, no NaN, values update after save)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/OpeningBalancesForm.tsx",
+          "operation": "modify",
+          "description": "Allow negative values for Cash Balance, UPI Balance, Savings (10%), and User Deductions inputs by removing non-negative HTML constraints and removing the form-level early-return that blocks negative values. Keep numeric parsing/NaN checks intact and persist signed BigInt values to local storage via existing mutation hooks."
+        },
+        {
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "operation": "modify",
+          "description": "Allow negative values in the \"Daily Deduction Amount\" input by updating input handling/validation to accept an optional leading '-' and ensuring save logic converts to a signed BigInt safely. Ensure day-wise calculations continue to use the saved signed deduction without producing NaN."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Update React Query + localStorage transaction mutation validation and error messaging to allow signed non-zero amounts end-to-end.",
+      "acceptanceCriteria": [
+        "Adding a transaction with a negative amount succeeds and updates the transaction list and balance cards.",
+        "Editing a transaction to a negative amount succeeds and updates the transaction list and balance cards.",
+        "Only a zero amount is rejected with an English error message that clearly states zero is not allowed."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Update local add/edit transaction mutation validation to permit negative amounts and reject only zero (amount === 0n). Update thrown errors and toast error messaging to clearly state that zero is not allowed, while continuing to persist signed amounts to localStorage and invalidate/refetch dependent React Query data."
+        },
+        {
+          "path": "frontend/src/components/TransactionForm.tsx",
+          "operation": "modify",
+          "description": "Align client-side validation/error UX with updated mutation rules: reject only non-numeric/empty/zero and allow negative values; ensure the form does not prevent valid negative submissions (so React Query mutation succeeds and triggers list/balance updates)."
+        },
+        {
+          "path": "frontend/src/components/EditTransactionDialog.tsx",
+          "operation": "modify",
+          "description": "Align client-side validation/error UX with updated mutation rules: reject only non-numeric/empty/zero and allow negative values; ensure the dialog does not prevent valid negative submissions (so React Query mutation succeeds and triggers list/balance updates)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Ensure amount styling/export logic uses numeric sign (positive/negative) rather than transaction type naming heuristics.",
+      "acceptanceCriteria": [
+        "If a transaction amount is negative, it is styled as negative (e.g., red) wherever transaction amounts are displayed, including day-wise transaction list and generated day-wise report HTML.",
+        "If a transaction amount is positive, it is styled as positive (e.g., green) wherever transaction amounts are displayed, including day-wise transaction list and generated day-wise report HTML."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/TransactionHistory.tsx",
+          "operation": "modify",
+          "description": "Update displayed sign (+/-) and positive/negative color styling to be based on the numeric sign of transaction.amount (amount < 0 vs amount > 0), not on whether the transaction type is an inflow/outflow. Ensure no double-sign rendering occurs for negative amounts."
+        },
+        {
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "operation": "modify",
+          "description": "Update day-wise transaction list amount styling to use the numeric sign of transaction.amount (amount < 0 red, amount > 0 green). Update generated day-wise report HTML so amount CSS class selection is based on numeric sign rather than transaction type string matching."
+        },
+        {
+          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "operation": "modify",
+          "description": "Update generated monthly report HTML so the amount CSS class selection (positive/negative styling) is based on the numeric sign of the transaction amount rather than transaction type string matching, preventing incorrect styling for signed amounts."
+        }
+      ]
+    }
+  ]
+}

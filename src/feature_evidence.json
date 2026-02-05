@@ -1,0 +1,86 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-allow-entering-negative-numbers-for-transaction-amounts-when-adding-or-editing-a-transaction-and-persist-the-signed-value-do-not-auto-convert-to-absolute-value-update-validation-so-that-amount-can-be-any-non-zero-number-positive-or-negative",
+      "featureTitle": "Allow entering negative numbers for transaction amounts when adding or editing a transaction, and persist the signed value (do not auto-convert to absolute value). Update validation so that amount can be any non-zero number (positive or negative).",
+      "files": [
+        "frontend/src/components/EditTransactionDialog.tsx",
+        "frontend/src/components/TransactionForm.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-allow-entering-negative-numbers-for-all-other-amount-like-inputs-used-in-ledger-calculations-specifically-opening-balance-fields-cash-balance-upi-balance-savings-10-user-deductions-and-the-day-wise-daily-deduction-amount-input-ensure-these-signed-values-are-saved-and-used-in-balance-stat-calculations",
+      "featureTitle": "Allow entering negative numbers for all other amount-like inputs used in ledger calculations, specifically Opening Balance fields (Cash Balance, UPI Balance, Savings (10%), User Deductions) and the Day-wise \"Daily Deduction Amount\" input. Ensure these signed values are saved and used in balance/stat calculations.",
+      "files": [
+        "frontend/src/components/DaywiseTransactions.tsx",
+        "frontend/src/components/OpeningBalancesForm.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-local-transaction-mutation-validation-to-permit-negative-amounts-non-zero-including-the-error-messaging-so-adding-editing-transactions-with-negative-amounts-works-end-to-end-with-react-query-localstorage",
+      "featureTitle": "Update local transaction mutation validation to permit negative amounts (non-zero), including the error messaging, so adding/editing transactions with negative amounts works end-to-end with React Query + localStorage.",
+      "files": [
+        "frontend/src/components/EditTransactionDialog.tsx",
+        "frontend/src/components/TransactionForm.tsx",
+        "frontend/src/hooks/useQueries.ts"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ensure-ui-display-export-logic-does-not-incorrectly-assume-sign-based-on-transaction-type-where-the-ui-uses-color-style-to-indicate-positive-vs-negative-base-it-on-the-numeric-sign-of-the-amount-and-computed-totals-not-on-whether-the-type-contains-in-or-out",
+      "featureTitle": "Ensure UI display/export logic does not incorrectly assume sign based on transaction type. Where the UI uses color/style to indicate positive vs negative, base it on the numeric sign of the amount (and computed totals), not on whether the type contains \"In\" or \"Out\".",
+      "files": [
+        "frontend/src/components/DaywiseTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-04T12:18:03.555Z",
+  "summary": "Diff partially adds support for negative numeric entry (notably daily deduction input parsing and using signed BigInt conversions), but it does not clearly implement the required non-zero validation + user-facing error messaging, and UI styling is still based on transaction type rather than numeric sign. The diff also appears to modify an explicitly immutable file and adds an unrelated project_state.json file.",
+  "missing_requirements": [
+    {
+      "id": "REQ-3",
+      "requirement": "Update local transaction mutation validation to permit negative amounts (non-zero), including the error messaging, so adding/editing transactions with negative amounts works end-to-end with React Query + localStorage.",
+      "reason": "The UI submit handlers still just early-return on NaN/0 without any English error message, and the diff excerpt for the React Query/localStorage mutation layer does not show any explicit validation/error-message update that enforces \"non-zero\" while allowing negatives.",
+      "evidence": [
+        "frontend/src/components/TransactionForm.tsx",
+        "frontend/src/components/EditTransactionDialog.tsx",
+        "frontend/src/hooks/useQueries.ts"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "requirement": "Ensure UI display/export logic does not incorrectly assume sign based on transaction type; styling should be based on numeric sign of amount (and computed totals).",
+      "reason": "Transaction styling still appears to be derived from TransactionType (e.g., cashIn => green, cashOut => red), which violates the requirement to base styling on the numeric sign. No evidence in the diff shows sign-based styling changes for transaction lists or report HTML generation.",
+      "evidence": [
+        "frontend/src/components/TransactionHistory.tsx"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Modified an explicitly immutable file (Internet Identity hook).",
+      "reason": "BuildRequest constraints forbid modifying frontend immutable paths, including frontend/src/hooks/useInternetIdentity.ts; diff shows it as modified.",
+      "evidence": [
+        "frontend/src/hooks/useInternetIdentity.ts"
+      ]
+    },
+    {
+      "description": "Added project_state.json file describing overall app state/features.",
+      "reason": "Not requested by any requirement; appears unrelated to negative amount support.",
+      "evidence": [
+        "project_state.json"
+      ]
+    }
+  ],
+  "confidence": 0.63,
+  "changed_files": [
+    "frontend/src/components/DaywiseTransactions.tsx",
+    "frontend/src/components/EditTransactionDialog.tsx",
+    "frontend/src/components/OpeningBalancesForm.tsx",
+    "frontend/src/components/TransactionForm.tsx",
+    "frontend/src/components/TransactionHistory.tsx",
+    "frontend/src/hooks/useInternetIdentity.ts",
+    "frontend/src/hooks/useQueries.ts",
+    "project_state.json"
+  ]
+}

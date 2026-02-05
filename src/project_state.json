@@ -1,0 +1,248 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "APJ ENTERPRISES is an offline-first store/ledger financial tracking app (React + TypeScript + Tailwind/shadcn UI) for recording cash/UPI transactions, computing balances with daily 10% savings deductions and user-specified daily deductions, and producing day-wise/monthly/date-range views and downloadable reports. Data is persisted locally in browser localStorage (with React Query for cache + invalidation) and can be backed up/restored via JSON export/import. The repository also contains an Internet Identity + Motoko backend with role-based access control and profile storage (lightly used by the frontend) plus an Android WebView wrapper app to ship the web app as an APK.",
+  "existing_features": [
+    {
+      "id": "IF-1",
+      "title": "Offline PIN authentication (setup/verify/reset)",
+      "synonyms": [
+        "Local PIN auth",
+        "PIN lock screen"
+      ],
+      "description": "Implements a fully offline 4-digit PIN gate. PIN is SHA-256 hashed via WebCrypto and stored in localStorage; a session-auth flag is stored in sessionStorage to persist auth per browser session. Includes PIN setup with confirmation, verification, reset (clears PIN + session), and logout behavior integrated into the app shell.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-2",
+      "title": "Transaction CRUD (localStorage + React Query)",
+      "synonyms": [
+        "Add/Edit/Delete transactions",
+        "Ledger entries"
+      ],
+      "description": "Users can add, edit, and delete transactions stored in localStorage with types: Cash In, Cash Out, UPI In, UPI Out, Savings (10%) Out, and Deductions Out. Each mutation updates localStorage and React Query cache immediately, then invalidates dependent queries (balances, daily tracking, cumulative stats).",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-3",
+      "title": "Opening balances management (cash/UPI/savings/deductions)",
+      "synonyms": [
+        "Initial balances",
+        "Starting balance"
+      ],
+      "description": "Provides a collapsible Opening Balance form to save or update opening cash, opening UPI, opening savings, opening user deductions, and an associated date. Stored locally and incorporated into balance and cumulative calculations.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-4",
+      "title": "Automatic 10% savings calculation (rounded to nearest 10)",
+      "synonyms": [
+        "Ten percent deduction",
+        "10% savings rule"
+      ],
+      "description": "Recalculates 10% savings per day based on daily inflows (cashIn + upiIn), rounded to the nearest 10, and stores the result keyed by normalized day timestamp in localStorage. Recomputed on every add/edit/delete transaction to keep derived totals consistent.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-5",
+      "title": "User-specified daily deduction tracking",
+      "synonyms": [
+        "Daily deduction",
+        "Cheeti per day"
+      ],
+      "description": "Allows setting a per-day user-specified deduction amount stored in localStorage by normalized date key. Updates immediately reflect in daily tracking, cumulative stats, and computed balances via React Query invalidation.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-6",
+      "title": "Balance computation with deductions and opening balances",
+      "synonyms": [
+        "Financial overview",
+        "Balance cards"
+      ],
+      "description": "Computes cash/UPI totals and balances using local transactions plus opening balances and cumulative deductions. Cash balance subtracts cumulative 10% savings and cumulative user deductions; savings and deductions balances are tracked separately (opening + cumulative - outflows). Presents a prominent Total Remaining Balance (cash after deductions + UPI).",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-7",
+      "title": "Dashboard with tabbed navigation and transaction type preselection",
+      "synonyms": [
+        "Overview/Add/History navigation",
+        "Quick add via tiles"
+      ],
+      "description": "Dashboard uses two-row tab navigation (Overview, Add Transaction, History, Filter, Day-wise, Monthly). Balance tiles are clickable to jump to Add Transaction with the corresponding transaction type preselected and auto-focus on amount input.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-8",
+      "title": "Transaction history list with filtering, edit dialog, and delete confirmation",
+      "synonyms": [
+        "History tab",
+        "Edit transaction modal"
+      ],
+      "description": "Displays transaction history from localStorage with filters for All/Cash/UPI, formatted dates and amounts, and colored badges. Supports editing via modal dialog and deletion with a confirmation alert dialog; changes propagate instantly to balances and stats.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-9",
+      "title": "Day-wise transaction analytics and report export",
+      "synonyms": [
+        "Daily view",
+        "Day-wise report"
+      ],
+      "description": "Lets users select a date, shows day totals (cash/UPI inflows/outflows), combined inflow, computed 10% deduction (from inflows), user daily deduction, and a net day balance. Includes an export function that generates a branded HTML report and opens the browser print dialog for PDF saving.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-10",
+      "title": "Date-range filtering with summary statistics",
+      "synonyms": [
+        "Filter tab",
+        "Range analysis"
+      ],
+      "description": "Filters transactions between start/end dates (normalized to day boundaries), displays a results table, and computes summary stats (cash/upi inflows and outflows, 10% deduction on inflows, summed user deductions across included days, and net amount). Auto re-applies filter when the transactions query updates via React Query cache subscription.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-11",
+      "title": "Monthly transactions view by type with export",
+      "synonyms": [
+        "Monthly tab",
+        "Month report"
+      ],
+      "description": "Filters transactions locally by selected month and transaction type, computes total count and amount, shows a scrollable table, and exports a branded HTML report with print-to-PDF flow.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-12",
+      "title": "Backup and restore of local data",
+      "synonyms": [
+        "Export/import data",
+        "JSON backup"
+      ],
+      "description": "Creates a JSON backup file containing serialized localStorage values (transactions, balances, profile, daily tracking, deductions, 10% savings, opening balance). Restore imports from a selected JSON file and invalidates key React Query caches to refresh the UI.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-13",
+      "title": "Clear local ledger data (preserve PIN/profile)",
+      "synonyms": [
+        "Reset ledger",
+        "Delete all transactions"
+      ],
+      "description": "Provides a “Clear Data” action (with confirmation) that deletes local transaction-related keys (transactions, balances, daily tracking, deductions, savings, opening balance) and forces all derived queries to refetch/recompute.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-14",
+      "title": "Internet Identity integration and backend actor initialization (optional/background)",
+      "synonyms": [
+        "DFINITY II auth plumbing",
+        "Actor creation"
+      ],
+      "description": "Includes an InternetIdentityProvider for DFINITY AuthClient identity persistence and a useActor hook that creates an authenticated/anonymous backend actor and calls initializeAccessControl. Profile fetch/save attempts to sync with backend when available but falls back to local storage when offline.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-15",
+      "title": "Motoko backend with role-based access control and financial APIs",
+      "synonyms": [
+        "ICP canister backend",
+        "AccessControl module"
+      ],
+      "description": "Backend canister defines Transaction/Balance/OpeningBalance/DailyTracking/CumulativeStats APIs with an AccessControl module (admin/user/guest). Provides endpoints for transactions, balances, deductions, opening balances, and monthly queries (though frontend currently operates offline-first and does not rely on these for ledger operations).",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-16",
+      "title": "Android WebView wrapper application",
+      "synonyms": [
+        "APK wrapper",
+        "Android shell"
+      ],
+      "description": "Android app hosts the deployed web app in a WebView with splash screen, caching enabled, JavaScript enabled, full-screen mode, and back navigation handling; includes build and release documentation.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "feature-allow-entering-negative-numbers-for-transaction-amounts-when-adding-or-editing-a-transaction-and-persist-the-signed-value-do-not-auto-convert-to-absolute-value-update-validation-so-that-amount-can-be-any-non-zero-number-positive-or-negative",
+      "title": "Allow entering negative numbers for transaction amounts when adding or editing a transaction, and persist the signed value (do not auto-convert to absolute value). Update validation so that amount can be any non-zero number (positive or negative).",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-allow-entering-negative-numbers-for-all-other-amount-like-inputs-used-in-ledger-calculations-specifically-opening-balance-fields-cash-balance-upi-balance-savings-10-user-deductions-and-the-day-wise-daily-deduction-amount-input-ensure-these-signed-values-are-saved-and-used-in-balance-stat-calculations",
+      "title": "Allow entering negative numbers for all other amount-like inputs used in ledger calculations, specifically Opening Balance fields (Cash Balance, UPI Balance, Savings (10%), User Deductions) and the Day-wise \"Daily Deduction Amount\" input. Ensure these signed values are saved and used in balance/stat calculations.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-local-transaction-mutation-validation-to-permit-negative-amounts-non-zero-including-the-error-messaging-so-adding-editing-transactions-with-negative-amounts-works-end-to-end-with-react-query-localstorage",
+      "title": "Update local transaction mutation validation to permit negative amounts (non-zero), including the error messaging, so adding/editing transactions with negative amounts works end-to-end with React Query + localStorage.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-ui-display-export-logic-does-not-incorrectly-assume-sign-based-on-transaction-type-where-the-ui-uses-color-style-to-indicate-positive-vs-negative-base-it-on-the-numeric-sign-of-the-amount-and-computed-totals-not-on-whether-the-type-contains-in-or-out",
+      "title": "Ensure UI display/export logic does not incorrectly assume sign based on transaction type. Where the UI uses color/style to indicate positive vs negative, base it on the numeric sign of the amount (and computed totals), not on whether the type contains \"In\" or \"Out\".",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Allow entering negative amounts for transactions (support negative values in amount inputs and calculations).",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "architectural_notes": [
+    "Frontend is a React SPA using @tanstack/react-query as the state/query layer even for local-only storage, leveraging query invalidation to refresh derived views (balances, daily tracking, cumulative stats).",
+    "Offline-first persistence: transactions, opening balances, deductions, savings, and profile are stored in localStorage/sessionStorage; mutations update localStorage synchronously and then update/invalidate React Query caches for immediate UI consistency.",
+    "Amounts and timestamps are handled as bigint; timestamps are stored as nanoseconds (ms * 1_000_000) and converted to JS Date for display/selection.",
+    "Financial computations are centralized in frontend hook utilities (calculateBalances, calculateDailyTracking, calculateCumulativeStats) and recomputed after each transaction edit/add/delete.",
+    "UI is built with shadcn/ui components and Tailwind, with custom CSS overrides for select visibility and a heavily styled calendar component.",
+    "Authentication is local PIN-based (hash stored in localStorage, session auth in sessionStorage) with a dedicated PIN setup/verify flow; logout clears session auth and React Query cache.",
+    "Backend (Motoko) implements transactions/balances/opening balances/deductions with AccessControl roles and Internet Identity principals; frontend includes actor creation and profile sync, but core ledger operations are currently implemented entirely offline in the frontend.",
+    "Android module wraps the deployed web app inside a full-screen WebView with splash screen and basic navigation support."
+  ],
+  "known_issues": [
+    "Frontend uses number parsing + Math.round when converting user-entered amounts to bigint, despite allowing step=\"0.01\"; fractional currency (paise) is effectively discarded.",
+    "Multiple places convert bigint to Number for date/amount formatting and filtering; very large values may overflow JS Number and cause incorrect dates/amounts.",
+    "Backend access control flow is fragile: AccessControl.getUserRole traps for non-anonymous unregistered users; ensureUserRegistered calls getUserRole and can trap unless initializeAccessControl already registered the caller.",
+    "Backend monthly filtering is incorrect: isInMonth() currently returns a constant expression (year == year and monthWithOffset == monthWithOffset), so backend monthly queries don’t actually filter by month/year.",
+    "Backend balance handling for savingsOut/deductionsOut appears inconsistent: addTransaction/editTransaction/deleteTransaction mutate persistentOpeningBalance (updateSavingsBalance/updateDeductionsBalance) and getBalances also subtracts savingsOut/deductionsOut, likely double-applying impacts.",
+    "Backend daily tracking calculation (calculateDailyTotals) sums all transaction amounts, whereas the frontend’s daily/10% logic is explicitly based on inflows only (cashIn + upiIn); this creates frontend/backend logic divergence.",
+    "FilterTransactions contains extensive console logging (debug output) that may be noisy in production.",
+    "“Generate PDF” features (day-wise/monthly) actually generate downloadable HTML and open the print dialog for manual PDF conversion; not a real PDF generation pipeline."
+  ],
+  "isFixRequest": false,
+  "gameProjectType": "none",
+  "projectName": "APJ ENTERPRISES",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

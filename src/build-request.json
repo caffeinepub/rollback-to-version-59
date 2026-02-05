@@ -1,0 +1,91 @@
+{
+  "kind": "build_request",
+  "title": "Support negative amounts across all amount inputs and calculations",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Allow entering negative numbers for transaction amounts when adding or editing a transaction, and persist the signed value (do not auto-convert to absolute value). Update validation so that amount can be any non-zero number (positive or negative).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Allow each amount in negative as well."
+        ]
+      },
+      "acceptanceCriteria": [
+        "In the Add New Transaction form, the Amount field accepts values like -100 and 100, and rejects 0 / empty / non-numeric input.",
+        "In the Edit Transaction dialog, the Amount field accepts values like -100 and 100, and rejects 0 / empty / non-numeric input.",
+        "Submitting a negative amount creates/updates a transaction whose stored amount is negative (e.g., -100 is stored/displayed as -100)."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Allow entering negative numbers for all other amount-like inputs used in ledger calculations, specifically Opening Balance fields (Cash Balance, UPI Balance, Savings (10%), User Deductions) and the Day-wise \"Daily Deduction Amount\" input. Ensure these signed values are saved and used in balance/stat calculations.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Allow each amount in negative as well."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Opening Balance form accepts negative values in all amount inputs and saves them to local storage without blocking submission.",
+        "Day-wise \"Daily Deduction Amount\" input accepts negative values (e.g., -350) and saves them for the selected date.",
+        "Balances and day-wise totals reflect negative opening balances and negative deductions correctly (no crashes, no NaN, values update after save)."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Update local transaction mutation validation to permit negative amounts (non-zero), including the error messaging, so adding/editing transactions with negative amounts works end-to-end with React Query + localStorage.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Allow each amount in negative as well."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Adding a transaction with a negative amount succeeds and updates the transaction list and balance cards.",
+        "Editing a transaction to a negative amount succeeds and updates the transaction list and balance cards.",
+        "Only a zero amount is rejected with an English error message that clearly states zero is not allowed."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Ensure UI display/export logic does not incorrectly assume sign based on transaction type. Where the UI uses color/style to indicate positive vs negative, base it on the numeric sign of the amount (and computed totals), not on whether the type contains \"In\" or \"Out\".",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Allow each amount in negative as well."
+        ]
+      },
+      "acceptanceCriteria": [
+        "If a transaction amount is negative, it is styled as negative (e.g., red) wherever transaction amounts are displayed, including day-wise transaction list and generated day-wise report HTML.",
+        "If a transaction amount is positive, it is styled as positive (e.g., green) wherever transaction amounts are displayed, including day-wise transaction list and generated day-wise report HTML."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not edit any files under frontend/src/components/ui (shadcn components are read-only).",
+    "Do not modify frontend immutable paths: frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx.",
+    "Keep the backend single-actor architecture; only introduce backend changes if strictly necessary for negative amount support."
+  ],
+  "nonGoals": [
+    "Do not change the meaning of transaction types (Cash In/Out, UPI In/Out, etc.) beyond allowing signed amounts to be recorded.",
+    "Do not introduce a new currency/decimal system or paise precision changes as part of this request."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}
