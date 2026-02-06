@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, ArrowUpCircle, ArrowDownCircle, History, Edit, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowUpCircle, ArrowDownCircle, History, Edit, Trash2, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import EditTransactionDialog from './EditTransactionDialog';
 import {
@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { mergeWithDerivedRows, isRealTransaction, isDerivedRow, type DisplayTransaction } from '../utils/derivedTransactions';
 
 export default function TransactionHistory() {
   const { data: transactions, isLoading, error } = useGetAllTransactions();
@@ -98,13 +99,23 @@ export default function TransactionHistory() {
     }
   };
 
-  const filteredTransactions = transactions?.filter((t) => {
+  // Merge real transactions with derived rows
+  const displayTransactions = transactions ? mergeWithDerivedRows(transactions) : [];
+
+  // Apply filter
+  const filteredTransactions = displayTransactions.filter((row) => {
     if (filter === 'all') return true;
-    if (filter === 'cash') {
-      return t.transactionType === TransactionType.cashIn || t.transactionType === TransactionType.cashOut;
-    }
-    if (filter === 'upi') {
-      return t.transactionType === TransactionType.upiIn || t.transactionType === TransactionType.upiOut;
+    
+    // Derived rows are always shown in 'all' view only
+    if (isDerivedRow(row)) return false;
+    
+    if (isRealTransaction(row)) {
+      if (filter === 'cash') {
+        return row.transactionType === TransactionType.cashIn || row.transactionType === TransactionType.cashOut;
+      }
+      if (filter === 'upi') {
+        return row.transactionType === TransactionType.upiIn || row.transactionType === TransactionType.upiOut;
+      }
     }
     return true;
   });
@@ -203,65 +214,110 @@ export default function TransactionHistory() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredTransactions.map((transaction) => (
-                <div
-                  key={transaction.id.toString()}
-                  className="flex items-center justify-between border-b-2 border-gray-100 pb-4 last:border-b-0 transition-all duration-200 hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50 rounded-xl p-3 -mx-3 shadow-sm hover:shadow-md"
-                >
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="mt-1">
-                      {Number(transaction.amount) >= 0 ? (
-                        <div className="rounded-full bg-green-100 p-2.5 shadow-md">
-                          <ArrowUpCircle className="h-5 w-5 text-green-600" />
-                        </div>
-                      ) : (
-                        <div className="rounded-full bg-red-100 p-2.5 shadow-md">
-                          <ArrowDownCircle className="h-5 w-5 text-red-600" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge className={`${getTransactionTypeColor(transaction.transactionType)} font-bold shadow-sm`}>
-                          {getTransactionTypeLabel(transaction.transactionType)}
-                        </Badge>
-                      </div>
-                      {transaction.description && (
-                        <p className="mt-1 text-sm text-gray-900 font-semibold">{transaction.description}</p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-600 font-medium">
-                        {format(new Date(Number(transaction.date) / 1_000_000), 'PPP')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
+              {filteredTransactions.map((row, index) => {
+                // Generate unique key
+                const rowKey = isDerivedRow(row) 
+                  ? `derived-${row.derivedType}-${row.date.toString()}`
+                  : `txn-${(row as Transaction).id.toString()}`;
+
+                // Render derived row
+                if (isDerivedRow(row)) {
+                  return (
                     <div
-                      className={`text-lg font-bold ${
-                        Number(transaction.amount) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}
+                      key={rowKey}
+                      className="flex items-center justify-between border-b-2 border-gray-100 pb-4 last:border-b-0 transition-all duration-200 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-3 -mx-3 shadow-sm"
                     >
-                      {formatAmount(transaction.amount)}
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className="mt-1">
+                          <div className="rounded-full bg-amber-100 p-2.5 shadow-md">
+                            <TrendingDown className="h-5 w-5 text-amber-600" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-amber-100 text-amber-800 border-2 border-amber-300 font-bold shadow-sm">
+                              {row.derivedType}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-900 font-semibold italic">
+                            Auto-calculated deduction
+                          </p>
+                          <p className="mt-1 text-xs text-gray-600 font-medium">
+                            {format(new Date(Number(row.date) / 1_000_000), 'PPP')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-lg font-bold text-amber-700">
+                          {formatAmount(row.amount)}
+                        </div>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditClick(transaction)}
-                      className="h-9 px-3 border-2 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-black font-bold rounded-lg shadow-sm transition-all duration-200 hover:text-black hover:font-extrabold"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteClick(transaction.id)}
-                      disabled={deleteTransaction.isPending}
-                      className="h-9 px-3 border-2 border-red-300 bg-red-50 hover:bg-red-100 hover:border-red-400 text-black font-bold rounded-lg shadow-sm transition-all duration-200 hover:text-black hover:font-extrabold disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  );
+                }
+
+                // Render real transaction
+                const transaction = row as Transaction;
+                return (
+                  <div
+                    key={rowKey}
+                    className="flex items-center justify-between border-b-2 border-gray-100 pb-4 last:border-b-0 transition-all duration-200 hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50 rounded-xl p-3 -mx-3 shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className="mt-1">
+                        {Number(transaction.amount) >= 0 ? (
+                          <div className="rounded-full bg-green-100 p-2.5 shadow-md">
+                            <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                          </div>
+                        ) : (
+                          <div className="rounded-full bg-red-100 p-2.5 shadow-md">
+                            <ArrowDownCircle className="h-5 w-5 text-red-600" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Badge className={`${getTransactionTypeColor(transaction.transactionType)} font-bold shadow-sm`}>
+                            {getTransactionTypeLabel(transaction.transactionType)}
+                          </Badge>
+                        </div>
+                        {transaction.description && (
+                          <p className="mt-1 text-sm text-gray-900 font-semibold">{transaction.description}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-600 font-medium">
+                          {format(new Date(Number(transaction.date) / 1_000_000), 'PPP')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`text-lg font-bold ${
+                          Number(transaction.amount) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}
+                      >
+                        {formatAmount(transaction.amount)}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditClick(transaction)}
+                        className="h-9 px-3 border-2 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-black font-bold rounded-lg shadow-sm transition-all duration-200 hover:text-black hover:font-extrabold"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteClick(transaction.id)}
+                        disabled={deleteTransaction.isPending}
+                        className="h-9 px-3 border-2 border-red-300 bg-red-50 hover:bg-red-100 hover:border-red-400 text-black font-bold rounded-lg shadow-sm transition-all duration-200 hover:text-black hover:font-extrabold disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -10,6 +10,7 @@ import { CalendarIcon, Filter as FilterIcon, TrendingUp, TrendingDown } from 'lu
 import { format } from 'date-fns';
 import type { Transaction } from '../backend';
 import { useQueryClient } from '@tanstack/react-query';
+import { getDerivedRowsForDateRange, type DisplayTransaction, isDerivedRow, isRealTransaction } from '../utils/derivedTransactions';
 
 interface FilteredTransaction extends Transaction {
   dateDisplay: string;
@@ -73,7 +74,7 @@ export default function FilterTransactions() {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
   const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
-  const [filteredData, setFilteredData] = useState<FilteredTransaction[]>([]);
+  const [filteredData, setFilteredData] = useState<DisplayTransaction[]>([]);
   const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
   const [hasFiltered, setHasFiltered] = useState(false);
 
@@ -276,7 +277,15 @@ export default function FilterTransactions() {
       netAmount,
     });
 
-    setFilteredData(filtered);
+    // Get derived rows for the date range
+    const derivedRows = getDerivedRowsForDateRange(start, end);
+    
+    // Merge filtered transactions with derived rows
+    const allDisplayRows: DisplayTransaction[] = [...filtered, ...derivedRows].sort((a, b) => {
+      return Number(b.date) - Number(a.date);
+    });
+
+    setFilteredData(allDisplayRows);
     setHasFiltered(true);
   };
 
@@ -464,7 +473,7 @@ export default function FilterTransactions() {
           <CardHeader className="bg-gradient-to-r from-teal-500 via-blue-500 to-purple-500 text-white rounded-t-xl">
             <CardTitle className="text-2xl font-black flex items-center gap-2">
               <FilterIcon className="h-6 w-6" />
-              Filtered Results ({filteredData.length} {filteredData.length === 1 ? 'transaction' : 'transactions'})
+              Filtered Results ({filteredData.length} {filteredData.length === 1 ? 'entry' : 'entries'})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -479,29 +488,62 @@ export default function FilterTransactions() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((transaction, index) => (
-                    <TableRow 
-                      key={transaction.id.toString()} 
-                      className={`hover:bg-gradient-to-r hover:from-blue-50 hover:via-teal-50 hover:to-purple-50 transition-all duration-200 border-b border-gray-200 ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      }`}
-                    >
-                      <TableCell className="font-bold text-gray-900 text-base py-4">
-                        {transaction.dateDisplay}
-                      </TableCell>
-                      <TableCell className="py-4">
-                        <Badge className={`${getTransactionTypeBadgeClass(transaction.transactionType)} font-black text-base px-4 py-2`}>
-                          {getTransactionTypeLabel(transaction.transactionType)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-black text-gray-900 text-lg py-4">
-                        {formatAmount(transaction.amount)}
-                      </TableCell>
-                      <TableCell className="text-gray-700 text-base font-medium py-4">
-                        {transaction.description || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredData.map((row, index) => {
+                    const rowKey = isDerivedRow(row)
+                      ? `derived-${row.derivedType}-${row.date.toString()}`
+                      : `txn-${(row as Transaction).id.toString()}`;
+
+                    // Render derived row
+                    if (isDerivedRow(row)) {
+                      return (
+                        <TableRow
+                          key={rowKey}
+                          className={`bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 transition-all duration-200 border-b border-gray-200`}
+                        >
+                          <TableCell className="font-bold text-gray-900 text-base py-4">
+                            {format(new Date(Number(row.date) / 1_000_000), 'PPP')}
+                          </TableCell>
+                          <TableCell className="py-4">
+                            <Badge className="bg-amber-100 text-amber-800 border-2 border-amber-300 font-black text-base px-4 py-2">
+                              {row.derivedType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-black text-amber-700 text-lg py-4">
+                            {formatAmount(row.amount)}
+                          </TableCell>
+                          <TableCell className="text-gray-700 text-base font-medium italic py-4">
+                            Auto-calculated deduction
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    // Render real transaction
+                    const transaction = row as FilteredTransaction;
+                    return (
+                      <TableRow 
+                        key={rowKey}
+                        className={`hover:bg-gradient-to-r hover:from-blue-50 hover:via-teal-50 hover:to-purple-50 transition-all duration-200 border-b border-gray-200 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        }`}
+                      >
+                        <TableCell className="font-bold text-gray-900 text-base py-4">
+                          {transaction.dateDisplay}
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <Badge className={`${getTransactionTypeBadgeClass(transaction.transactionType)} font-black text-base px-4 py-2`}>
+                            {getTransactionTypeLabel(transaction.transactionType)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-black text-gray-900 text-lg py-4">
+                          {formatAmount(transaction.amount)}
+                        </TableCell>
+                        <TableCell className="text-gray-700 text-base font-medium py-4">
+                          {transaction.description || '-'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -529,4 +571,3 @@ export default function FilterTransactions() {
     </div>
   );
 }
-

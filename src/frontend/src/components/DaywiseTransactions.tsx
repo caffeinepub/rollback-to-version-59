@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import {
   CalendarIcon,
   AlertCircle,
@@ -18,9 +19,11 @@ import {
   FileDown,
   Percent,
   IndianRupee,
+  TrendingDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Transaction } from '../backend';
+import { getDerivedRowsForDate, type DisplayTransaction, isDerivedRow, isRealTransaction } from '../utils/derivedTransactions';
 
 const LOCAL_USER_DEDUCTIONS_KEY = 'apj_user_deductions';
 
@@ -285,6 +288,11 @@ export default function DaywiseTransactions() {
       background-color: #fed7aa;
       color: #9a3412;
     }
+    .badge-derived {
+      background-color: #fef3c7;
+      color: #92400e;
+      font-style: italic;
+    }
     .amount-positive {
       color: #059669;
       font-weight: bold;
@@ -476,6 +484,14 @@ export default function DaywiseTransactions() {
 
   const stats = calculateStats();
   const transactions = stats.transactions;
+  
+  // Get derived rows for the selected date
+  const dateMs = selectedDate.setHours(0, 0, 0, 0);
+  const dateNs = BigInt(dateMs * 1_000_000);
+  const derivedRows = getDerivedRowsForDate(dateNs);
+  
+  // Merge transactions with derived rows for display
+  const allDisplayRows: DisplayTransaction[] = [...transactions, ...derivedRows];
 
   const categoryCards = [
     {
@@ -651,15 +667,15 @@ export default function DaywiseTransactions() {
         </Button>
       </div>
 
-      {/* Transaction List */}
+      {/* Transaction List with Derived Rows */}
       <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 shadow-lg">
         <CardHeader>
           <CardTitle className="text-lg font-bold text-gray-800">
-            Transaction Details ({transactions.length})
+            Transaction Details ({allDisplayRows.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {transactions.length === 0 ? (
+          {allDisplayRows.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <AlertCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
               <p className="text-lg font-medium">No transactions found</p>
@@ -667,53 +683,88 @@ export default function DaywiseTransactions() {
             </div>
           ) : (
             <div className="space-y-3">
-              {transactions.map((transaction) => (
-                <div
-                  key={transaction.id.toString()}
-                  className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          transaction.transactionType === 'cashIn'
-                            ? 'bg-emerald-100 text-emerald-700'
+              {allDisplayRows.map((row, index) => {
+                const rowKey = isDerivedRow(row)
+                  ? `derived-${row.derivedType}-${row.date.toString()}`
+                  : `txn-${(row as Transaction).id.toString()}`;
+
+                // Render derived row
+                if (isDerivedRow(row)) {
+                  return (
+                    <div
+                      key={rowKey}
+                      className="bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-xl border-2 border-amber-200 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-full bg-amber-100 p-2 shadow-md">
+                            <TrendingDown className="h-4 w-4 text-amber-600" />
+                          </div>
+                          <Badge className="bg-amber-100 text-amber-800 border-2 border-amber-300 font-bold shadow-sm">
+                            {row.derivedType}
+                          </Badge>
+                        </div>
+                        <span className="text-lg font-bold text-amber-700">
+                          {formatAmount(row.amount)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 italic pl-1">
+                        Auto-calculated deduction
+                      </p>
+                    </div>
+                  );
+                }
+
+                // Render real transaction
+                const transaction = row as Transaction;
+                return (
+                  <div
+                    key={rowKey}
+                    className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            transaction.transactionType === 'cashIn'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : transaction.transactionType === 'cashOut'
+                              ? 'bg-rose-100 text-rose-700'
+                              : transaction.transactionType === 'upiIn'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-orange-100 text-orange-700'
+                          }`}
+                        >
+                          {transaction.transactionType === 'cashIn'
+                            ? 'Cash In'
                             : transaction.transactionType === 'cashOut'
-                            ? 'bg-rose-100 text-rose-700'
+                            ? 'Cash Out'
                             : transaction.transactionType === 'upiIn'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-orange-100 text-orange-700'
+                            ? 'UPI In'
+                            : 'UPI Out'}
+                        </span>
+                        <span className="text-sm text-gray-600 font-medium">
+                          {formatTime(transaction.date)}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-lg font-bold ${
+                          Number(transaction.amount) >= 0
+                            ? 'text-green-600'
+                            : 'text-red-600'
                         }`}
                       >
-                        {transaction.transactionType === 'cashIn'
-                          ? 'Cash In'
-                          : transaction.transactionType === 'cashOut'
-                          ? 'Cash Out'
-                          : transaction.transactionType === 'upiIn'
-                          ? 'UPI In'
-                          : 'UPI Out'}
-                      </span>
-                      <span className="text-sm text-gray-600 font-medium">
-                        {formatTime(transaction.date)}
+                        {formatAmount(transaction.amount)}
                       </span>
                     </div>
-                    <span
-                      className={`text-lg font-bold ${
-                        Number(transaction.amount) >= 0
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                      }`}
-                    >
-                      {formatAmount(transaction.amount)}
-                    </span>
+                    {transaction.description && (
+                      <p className="text-sm text-gray-700 mt-2 pl-1">
+                        {transaction.description}
+                      </p>
+                    )}
                   </div>
-                  {transaction.description && (
-                    <p className="text-sm text-gray-700 mt-2 pl-1">
-                      {transaction.description}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

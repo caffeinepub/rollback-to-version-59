@@ -2,11 +2,13 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-allow-entering-negative-numbers-for-transaction-amounts-when-adding-or-editing-a-transaction-and-persist-the-signed-value-do-not-auto-convert-to-absolute-value-update-validation-so-that-amount-can-be-any-non-zero-number-positive-or-negative",
-      "featureTitle": "Allow entering negative numbers for transaction amounts when adding or editing a transaction, and persist the signed value (do not auto-convert to absolute value). Update validation so that amount can be any non-zero number (positive or negative).",
+      "featureId": "feature-make-the-computed-10-savings-deduction-and-the-user-defined-cheeti-daily-deduction-appear-as-visible-non-editable-non-deletable-transaction-rows-in-all-transaction-list-views-transaction-history-day-wise-transactions-filter-transactions-results-and-monthly-transactions",
+      "featureTitle": "Make the computed 10% savings deduction and the user-defined cheeti (daily deduction) appear as visible, non-editable, non-deletable transaction rows in all transaction list views: Transaction History, Day-wise Transactions, Filter Transactions results, and Monthly Transactions.",
       "files": [
-        "frontend/src/components/EditTransactionDialog.tsx",
-        "frontend/src/components/TransactionForm.tsx"
+        "frontend/src/components/DaywiseTransactions.tsx",
+        "frontend/src/components/FilterTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/utils/derivedTransactions.ts"
       ],
       "components": [
         "authorization@3.0.0",
@@ -22,11 +24,12 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-allow-entering-negative-numbers-for-all-other-amount-like-inputs-used-in-ledger-calculations-specifically-opening-balance-fields-cash-balance-upi-balance-savings-10-user-deductions-and-the-day-wise-daily-deduction-amount-input-ensure-these-signed-values-are-saved-and-used-in-balance-stat-calculations",
-      "featureTitle": "Allow entering negative numbers for all other amount-like inputs used in ledger calculations, specifically Opening Balance fields (Cash Balance, UPI Balance, Savings (10%), User Deductions) and the Day-wise \"Daily Deduction Amount\" input. Ensure these signed values are saved and used in balance/stat calculations.",
+      "featureId": "feature-derive-the-10-savings-amount-and-cheeti-amount-from-the-existing-localstorage-sources-used-by-the-app-and-keep-all-existing-stored-transactions-unchanged-i-e-do-not-physically-create-new-stored-transactions-for-these-derived-rows",
+      "featureTitle": "Derive the 10% savings amount and cheeti amount from the existing localStorage sources used by the app, and keep all existing stored transactions unchanged (i.e., do not physically create new stored transactions for these derived rows).",
       "files": [
-        "frontend/src/components/DaywiseTransactions.tsx",
-        "frontend/src/components/OpeningBalancesForm.tsx"
+        "frontend/src/components/FilterTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/utils/derivedTransactions.ts"
       ],
       "components": [
         "authorization@3.0.0",
@@ -42,12 +45,11 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-update-local-transaction-mutation-validation-to-permit-negative-amounts-non-zero-including-the-error-messaging-so-adding-editing-transactions-with-negative-amounts-works-end-to-end-with-react-query-localstorage",
-      "featureTitle": "Update local transaction mutation validation to permit negative amounts (non-zero), including the error messaging, so adding/editing transactions with negative amounts works end-to-end with React Query + localStorage.",
+      "featureId": "feature-ensure-derived-rows-do-not-break-existing-actions-users-cannot-edit-delete-derived-rows-and-edit-delete-continues-to-work-for-real-transactions-exactly-as-before",
+      "featureTitle": "Ensure derived rows do not break existing actions: users cannot edit/delete derived rows, and edit/delete continues to work for real transactions exactly as before.",
       "files": [
-        "frontend/src/components/EditTransactionDialog.tsx",
-        "frontend/src/components/TransactionForm.tsx",
-        "frontend/src/hooks/useQueries.ts"
+        "frontend/src/components/DaywiseTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx"
       ],
       "components": [
         "authorization@3.0.0",
@@ -63,11 +65,13 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-ensure-ui-display-export-logic-does-not-incorrectly-assume-sign-based-on-transaction-type-where-the-ui-uses-color-style-to-indicate-positive-vs-negative-base-it-on-the-numeric-sign-of-the-amount-and-computed-totals-not-on-whether-the-type-contains-in-or-out",
-      "featureTitle": "Ensure UI display/export logic does not incorrectly assume sign based on transaction type. Where the UI uses color/style to indicate positive vs negative, base it on the numeric sign of the amount (and computed totals), not on whether the type contains \"In\" or \"Out\".",
+      "featureId": "feature-update-list-sorting-and-presentation-so-derived-rows-appear-under-the-correct-date-and-do-not-cause-duplicate-counting-in-existing-summary-stat-calculations",
+      "featureTitle": "Update list sorting and presentation so derived rows appear under the correct date and do not cause duplicate counting in existing summary/stat calculations.",
       "files": [
         "frontend/src/components/DaywiseTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx"
+        "frontend/src/components/FilterTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/utils/derivedTransactions.ts"
       ],
       "components": [
         "authorization@3.0.0",
@@ -79,6 +83,48 @@
       ],
       "testIds": [
         "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-fix-any-typescript-type-mismatches-introduced-by-displaying-derived-rows-since-they-are-not-part-of-the-backend-transactiontype-union-without-changing-backend-canister-interfaces",
+      "featureTitle": "Fix any TypeScript/type mismatches introduced by displaying derived rows (since they are not part of the backend TransactionType union) without changing backend canister interfaces.",
+      "files": [
+        "frontend/src/components/FilterTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/utils/derivedTransactions.ts"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-resolve-the-current-build-deployment-failure-so-the-updated-app-can-successfully-build-and-deploy-with-the-new-derived-row-changes",
+      "featureTitle": "Resolve the current build/deployment failure so the updated app can successfully build and deploy with the new derived-row changes.",
+      "files": [
+        "frontend/src/components/FilterTransactions.tsx",
+        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/utils/derivedTransactions.ts"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-6"
       ],
       "confidence": "high"
     }

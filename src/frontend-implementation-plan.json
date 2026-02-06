@@ -1,98 +1,189 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Negative amount support across inputs, validation, calculations, and display",
+  "title": "Show derived 10% savings and cheeti deductions as visible rows across transaction lists",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Permit signed (negative/positive) transaction amounts in add/edit UI and persist signed values; validate amount as any non-zero number.",
+      "summary": "Render derived (non-stored) 10% savings and cheeti deduction rows in Transaction History, Day-wise, Filter results, and Monthly views.",
       "acceptanceCriteria": [
-        "In the Add New Transaction form, the Amount field accepts values like -100 and 100, and rejects 0 / empty / non-numeric input.",
-        "In the Edit Transaction dialog, the Amount field accepts values like -100 and 100, and rejects 0 / empty / non-numeric input.",
-        "Submitting a negative amount creates/updates a transaction whose stored amount is negative (e.g., -100 is stored/displayed as -100)."
+        "Transaction History shows additional rows representing: (1) 10% savings deduction and (2) cheeti/user-defined daily deduction, for any date where the computed amounts are non-zero.",
+        "Day-wise Transactions shows those two additional rows for the selected date (when non-zero).",
+        "Filter Transactions results table shows those two additional rows for each date within the filtered range where the computed amounts are non-zero.",
+        "Monthly Transactions provides a way to view these derived deduction rows for the selected month (e.g., via additional selectable transaction types or an 'All types' mode that includes derived rows).",
+        "The derived rows are clearly labeled in English (e.g., \"10% Savings\" and \"Cheeti Deduction\") and are visually distinguishable from user-entered transactions."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/TransactionForm.tsx",
-          "operation": "modify",
-          "description": "Update Amount input constraints to allow negative values (remove non-negative min), and update submit-time validation to allow any numeric non-zero amount (reject only 0/empty/non-numeric). Ensure the signed value is passed through unchanged when creating the transaction."
+          "path": "frontend/src/utils/derivedTransactions.ts",
+          "operation": "create",
+          "description": "Add shared frontend utilities to derive per-day display rows for \"10% Savings\" and \"Cheeti Deduction\" from existing localStorage keys (ten percent savings + user deductions) without persisting new transactions; include helpers to (a) build a derived row for a specific day and (b) merge derived rows into an existing transaction list by date with consistent ordering."
         },
         {
-          "path": "frontend/src/components/EditTransactionDialog.tsx",
+          "path": "frontend/src/components/TransactionHistory.tsx",
           "operation": "modify",
-          "description": "Update Amount input constraints to allow negative values (remove non-negative min), and update submit-time validation to allow any numeric non-zero amount (reject only 0/empty/non-numeric). Ensure the signed value is passed through unchanged when editing the transaction."
+          "description": "Augment the history list data source by merging derived rows (10% savings + cheeti deduction) into the displayed transaction list for each day where amounts are non-zero; render clear English labels and a visually distinct style for derived rows."
+        },
+        {
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "operation": "modify",
+          "description": "Insert derived rows into the day-wise transaction list for the selected date (when non-zero) using the shared derived-rows utility; make derived rows visually distinct and labeled \"10% Savings\" and \"Cheeti Deduction\"."
+        },
+        {
+          "path": "frontend/src/components/FilterTransactions.tsx",
+          "operation": "modify",
+          "description": "After computing filter results from localStorage, merge per-day derived rows into the results table for each day in range with non-zero amounts; keep the existing stats logic unchanged while expanding only the displayed rows."
+        },
+        {
+          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "operation": "modify",
+          "description": "Extend the monthly type selector behavior to support viewing derived rows for a selected month (e.g., add derived types and/or an \"All\" option that includes derived rows); render derived rows with clear labels and distinct styling."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Permit signed values for opening balances and daily deduction inputs; save signed values and use them in ledger calculations without NaN/crashes.",
+      "summary": "Source derived amounts from existing localStorage records and do not persist new transactions when showing derived rows.",
       "acceptanceCriteria": [
-        "Opening Balance form accepts negative values in all amount inputs and saves them to local storage without blocking submission.",
-        "Day-wise \"Daily Deduction Amount\" input accepts negative values (e.g., -350) and saves them for the selected date.",
-        "Balances and day-wise totals reflect negative opening balances and negative deductions correctly (no crashes, no NaN, values update after save)."
+        "No new persistent transactions are written to the existing localStorage transactions key as part of displaying 10%/cheeti rows.",
+        "Derived amounts are sourced from the same localStorage records already used by the app (10% savings and user deductions), and display updates correctly when the underlying transactions/deductions change."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/OpeningBalancesForm.tsx",
-          "operation": "modify",
-          "description": "Allow negative values for Cash Balance, UPI Balance, Savings (10%), and User Deductions inputs by removing non-negative HTML constraints and removing the form-level early-return that blocks negative values. Keep numeric parsing/NaN checks intact and persist signed BigInt values to local storage via existing mutation hooks."
+          "path": "frontend/src/utils/derivedTransactions.ts",
+          "operation": "create",
+          "description": "Implement localStorage reads for the existing keys that already drive deductions (apj_ten_percent_savings and apj_user_deductions) and generate UI-only derived rows; ensure the utility never writes to the transactions localStorage key (apj_transactions)."
         },
         {
-          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "path": "frontend/src/components/FilterTransactions.tsx",
           "operation": "modify",
-          "description": "Allow negative values in the \"Daily Deduction Amount\" input by updating input handling/validation to accept an optional leading '-' and ensuring save logic converts to a signed BigInt safely. Ensure day-wise calculations continue to use the saved signed deduction without producing NaN."
+          "description": "Ensure derived rows are added only to the in-memory filteredData used for rendering, without writing any new derived transactions into localStorage."
+        },
+        {
+          "path": "frontend/src/components/TransactionHistory.tsx",
+          "operation": "modify",
+          "description": "Ensure history derived rows are computed at render-time from localStorage-backed query data and do not mutate or persist additional transactions."
         }
       ]
     },
     {
       "id": "REQ-3",
-      "summary": "Update React Query + localStorage transaction mutation validation and error messaging to allow signed non-zero amounts end-to-end.",
+      "summary": "Prevent edit/delete actions for derived rows while keeping existing edit/delete behavior unchanged for real transactions.",
       "acceptanceCriteria": [
-        "Adding a transaction with a negative amount succeeds and updates the transaction list and balance cards.",
-        "Editing a transaction to a negative amount succeeds and updates the transaction list and balance cards.",
-        "Only a zero amount is rejected with an English error message that clearly states zero is not allowed."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Update local add/edit transaction mutation validation to permit negative amounts and reject only zero (amount === 0n). Update thrown errors and toast error messaging to clearly state that zero is not allowed, while continuing to persist signed amounts to localStorage and invalidate/refetch dependent React Query data."
-        },
-        {
-          "path": "frontend/src/components/TransactionForm.tsx",
-          "operation": "modify",
-          "description": "Align client-side validation/error UX with updated mutation rules: reject only non-numeric/empty/zero and allow negative values; ensure the form does not prevent valid negative submissions (so React Query mutation succeeds and triggers list/balance updates)."
-        },
-        {
-          "path": "frontend/src/components/EditTransactionDialog.tsx",
-          "operation": "modify",
-          "description": "Align client-side validation/error UX with updated mutation rules: reject only non-numeric/empty/zero and allow negative values; ensure the dialog does not prevent valid negative submissions (so React Query mutation succeeds and triggers list/balance updates)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "summary": "Ensure amount styling/export logic uses numeric sign (positive/negative) rather than transaction type naming heuristics.",
-      "acceptanceCriteria": [
-        "If a transaction amount is negative, it is styled as negative (e.g., red) wherever transaction amounts are displayed, including day-wise transaction list and generated day-wise report HTML.",
-        "If a transaction amount is positive, it is styled as positive (e.g., green) wherever transaction amounts are displayed, including day-wise transaction list and generated day-wise report HTML."
+        "Edit and Delete buttons/actions are not shown (or are disabled) for derived 10%/cheeti rows.",
+        "Edit/Delete for normal transactions still works and does not affect derived-row rendering other than recalculating the derived amounts as it does today."
       ],
       "file_operations": [
         {
           "path": "frontend/src/components/TransactionHistory.tsx",
           "operation": "modify",
-          "description": "Update displayed sign (+/-) and positive/negative color styling to be based on the numeric sign of transaction.amount (amount < 0 vs amount > 0), not on whether the transaction type is an inflow/outflow. Ensure no double-sign rendering occurs for negative amounts."
-        },
-        {
-          "path": "frontend/src/components/DaywiseTransactions.tsx",
-          "operation": "modify",
-          "description": "Update day-wise transaction list amount styling to use the numeric sign of transaction.amount (amount < 0 red, amount > 0 green). Update generated day-wise report HTML so amount CSS class selection is based on numeric sign rather than transaction type string matching."
+          "description": "Add an explicit derived-row flag in the rendered list and conditionally hide/disable Edit and Delete actions for derived rows; ensure edit/delete handlers only operate on real transactions and derived rows cannot open EditTransactionDialog or trigger delete."
         },
         {
           "path": "frontend/src/components/MonthlyTransactions.tsx",
           "operation": "modify",
-          "description": "Update generated monthly report HTML so the amount CSS class selection (positive/negative styling) is based on the numeric sign of the transaction amount rather than transaction type string matching, preventing incorrect styling for signed amounts."
+          "description": "If monthly view includes derived rows in the table, ensure they are rendered as read-only rows (no edit/delete UI) and visually distinguished from real transactions."
+        },
+        {
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "operation": "modify",
+          "description": "Ensure derived rows in the day-wise list are displayed as non-interactive/read-only rows consistent with the existing day-wise list behavior (which currently has no edit/delete actions)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Keep derived rows under correct dates with consistent ordering and prevent double counting in existing stats/summaries.",
+      "acceptanceCriteria": [
+        "Derived rows display under the correct day in each view (same day key logic as existing daily/user-deduction storage).",
+        "Existing summary cards/stats (daily stats, filter stats, balances) remain correct and are not double-counted due to derived rows being added to UI lists.",
+        "Within each day, derived rows have a consistent ordering relative to normal transactions (documented and consistent across views)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/utils/derivedTransactions.ts",
+          "operation": "create",
+          "description": "Centralize date-key normalization to match existing logic (start-of-day in local time, stored as nanoseconds string) and implement a deterministic merge order (e.g., keep real transactions in existing sort order, then append derived rows for that day in a fixed order: 10% Savings first, then Cheeti Deduction)."
+        },
+        {
+          "path": "frontend/src/components/FilterTransactions.tsx",
+          "operation": "modify",
+          "description": "Ensure filter summary stats continue to compute from real transactions + existing deductions sources only; add derived rows after stats are computed so the UI expansion does not change totals (no double counting)."
+        },
+        {
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "operation": "modify",
+          "description": "Ensure day-wise stats cards remain based on the existing calculation (and/or existing localStorage deductions) and only the transaction list is augmented with derived rows, preventing double counting in the displayed stats."
+        },
+        {
+          "path": "frontend/src/components/TransactionHistory.tsx",
+          "operation": "modify",
+          "description": "When merging derived rows into the history list, ensure derived rows use the correct date (start-of-day nanoseconds) for display and maintain consistent placement relative to other transactions (as defined in the derived merge utility)."
+        },
+        {
+          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "operation": "modify",
+          "description": "When monthly view includes derived rows, ensure their month membership is determined by the same normalized day/date logic as other views and ensure totals shown in monthly summary remain correct (either exclude derived from totals or compute totals from source values without double counting)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Introduce derived-row typing in the frontend without changing backend TransactionType or backend interfaces.",
+      "acceptanceCriteria": [
+        "Frontend compiles without TypeScript errors after introducing derived transaction row rendering.",
+        "No changes are required to Motoko types or backend candid to support the derived display rows."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/utils/derivedTransactions.ts",
+          "operation": "create",
+          "description": "Define frontend-only TypeScript types for display rows (e.g., a union type that can represent either a real backend Transaction or a derived deduction row) without altering backend TransactionType; export type guards/helpers used by list views."
+        },
+        {
+          "path": "frontend/src/components/TransactionHistory.tsx",
+          "operation": "modify",
+          "description": "Refactor component state and handlers to accept a frontend-only display-row union (not just backend Transaction), using type guards to keep edit/delete logic strictly for real transactions while rendering derived rows safely."
+        },
+        {
+          "path": "frontend/src/components/FilterTransactions.tsx",
+          "operation": "modify",
+          "description": "Update FilteredTransaction typing to support derived display rows (frontend-only) while keeping stats calculation based on real Transaction data; ensure no TypeScript mismatches with existing imports from ../backend."
+        },
+        {
+          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "operation": "modify",
+          "description": "Update monthly filtering state/types to include derived display-only type options (frontend-only union) without changing backend TransactionType; ensure the table renderer can handle both real and derived rows."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Resolve frontend build/runtime issues introduced or exposed by derived-row changes so the app builds and affected pages render cleanly.",
+      "acceptanceCriteria": [
+        "A full build completes successfully after implementing the changes.",
+        "The deployed draft runs and the affected pages render without runtime errors."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/TransactionHistory.tsx",
+          "operation": "modify",
+          "description": "Ensure derived-row rendering changes do not introduce runtime errors (e.g., invalid keys, invalid BigInt conversions, edit/delete actions on derived rows) and that the component compiles cleanly with updated types."
+        },
+        {
+          "path": "frontend/src/components/FilterTransactions.tsx",
+          "operation": "modify",
+          "description": "Ensure merged derived rows use stable row keys and do not break table rendering; verify any BigInt/Date conversions remain safe under filtered ranges."
+        },
+        {
+          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "operation": "modify",
+          "description": "Ensure monthly selector/type changes compile (no TransactionType mismatches), and the view handles cases like \"All\" / derived-only selections without crashing."
+        },
+        {
+          "path": "frontend/src/utils/derivedTransactions.ts",
+          "operation": "create",
+          "description": "Add defensive parsing for localStorage-derived bigint values and missing keys to prevent build-time and runtime failures across all list views."
         }
       ]
     }
