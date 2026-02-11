@@ -1,130 +1,76 @@
 {
   "kind": "build_request",
-  "title": "Show 10% savings and cheeti deductions as visible entries in transaction lists (history/daily/monthly/filter)",
+  "title": "Monthly tab: add Cheeti Deduction & Savings (10%) transaction-type options + description partial search",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Make the computed 10% savings deduction and the user-defined cheeti (daily deduction) appear as visible, non-editable, non-deletable transaction rows in all transaction list views: Transaction History, Day-wise Transactions, Filter Transactions results, and Monthly Transactions.",
+      "text": "In the Monthly Transactions tab, extend the Transaction Type dropdown to include two additional selectable options: \"Cheeti Deduction\" and \"Savings (10%)\" (English labels). These options must be selectable alongside the existing backend TransactionType options.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-12",
-          "msg-13"
+          "msg-19"
         ],
         "quotes": [
-          "Just keep everything as it is, just the savings 10% and the user defined cheeti deduction amount is not shown in transation history, make that transaction visible as both  deducted from main cash balance and added to savings and cheeti deductions respectively",
-          "Also in history"
+          "1. In \"monthly\" tab, in drop down option  of \"transaction type\", add cheeti deduction and also savings (10%)  and calculate accordingly."
         ]
       },
       "acceptanceCriteria": [
-        "Transaction History shows additional rows representing: (1) 10% savings deduction and (2) cheeti/user-defined daily deduction, for any date where the computed amounts are non-zero.",
-        "Day-wise Transactions shows those two additional rows for the selected date (when non-zero).",
-        "Filter Transactions results table shows those two additional rows for each date within the filtered range where the computed amounts are non-zero.",
-        "Monthly Transactions provides a way to view these derived deduction rows for the selected month (e.g., via additional selectable transaction types or an 'All types' mode that includes derived rows).",
-        "The derived rows are clearly labeled in English (e.g., \"10% Savings\" and \"Cheeti Deduction\") and are visually distinguishable from user-entered transactions."
+        "Monthly Transactions 'Transaction Type' dropdown contains options for Cheeti Deduction and Savings (10%) in addition to existing types.",
+        "The selected value can be set to either new option without TypeScript errors.",
+        "User-facing labels are in English (exactly \"Cheeti Deduction\" and \"Savings (10%)\" or \"Savings (10%)\" with consistent capitalization)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Derive the 10% savings amount and cheeti amount from the existing localStorage sources used by the app, and keep all existing stored transactions unchanged (i.e., do not physically create new stored transactions for these derived rows).",
+      "text": "When \"Cheeti Deduction\" or \"Savings (10%)\" is selected in the Monthly Transactions tab, calculate and display the corresponding monthly rows and totals based on the app’s existing localStorage-derived deduction/savings sources (the same sources used by the derived rows utilities), without creating or persisting new backend transactions. The monthly table must show only the derived rows for the selected month, and the Total Amount must be the sum of those derived amounts for that month.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-12"
+          "msg-19"
         ],
         "quotes": [
-          "Just keep everything as it is"
+          "add cheeti deduction and also savings (10%)  and calculate accordingly."
         ]
       },
       "acceptanceCriteria": [
-        "No new persistent transactions are written to the existing localStorage transactions key as part of displaying 10%/cheeti rows.",
-        "Derived amounts are sourced from the same localStorage records already used by the app (10% savings and user deductions), and display updates correctly when the underlying transactions/deductions change."
+        "Selecting \"Savings (10%)\" shows the derived savings rows for dates within the selected month, derived from existing localStorage values (no backend writes).",
+        "Selecting \"Cheeti Deduction\" shows the derived cheeti deduction rows for dates within the selected month, derived from existing localStorage values (no backend writes).",
+        "Total Transactions and Total Amount reflect only the rows currently displayed for the selected derived type and selected month.",
+        "If there are no derived rows for the selected month/type, the Monthly tab shows a 'no transactions found' style empty state instead of errors.",
+        "Existing behavior for backend transaction types (Cash In/Out, UPI In/Out, etc.) remains unchanged."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Ensure derived rows do not break existing actions: users cannot edit/delete derived rows, and edit/delete continues to work for real transactions exactly as before.",
+      "text": "In the Monthly Transactions tab, add a Description search input that filters the currently displayed monthly results by transaction description using case-insensitive partial matching (substring match). The filter must apply immediately as the user types and must work with partial input.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-12"
+          "msg-19"
         ],
         "quotes": [
-          "keep everything as it is"
+          "2. Also in \"monthly\" tab give an option to search the transaction description wise with partial input as well"
         ]
       },
       "acceptanceCriteria": [
-        "Edit and Delete buttons/actions are not shown (or are disabled) for derived 10%/cheeti rows.",
-        "Edit/Delete for normal transactions still works and does not affect derived-row rendering other than recalculating the derived amounts as it does today."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Update list sorting and presentation so derived rows appear under the correct date and do not cause duplicate counting in existing summary/stat calculations.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-7",
-          "msg-12"
-        ],
-        "quotes": [
-          "incorporate this in entire transaction like in monthly transaction, daily transactions, filter transaction page etc.",
-          "make that transaction visible as both  deducted from main cash balance and added to savings and cheeti deductions respectively"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Derived rows display under the correct day in each view (same day key logic as existing daily/user-deduction storage).",
-        "Existing summary cards/stats (daily stats, filter stats, balances) remain correct and are not double-counted due to derived rows being added to UI lists.",
-        "Within each day, derived rows have a consistent ordering relative to normal transactions (documented and consistent across views)."
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Fix any TypeScript/type mismatches introduced by displaying derived rows (since they are not part of the backend TransactionType union) without changing backend canister interfaces.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-12"
-        ],
-        "quotes": [
-          "make that transaction visible"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Frontend compiles without TypeScript errors after introducing derived transaction row rendering.",
-        "No changes are required to Motoko types or backend candid to support the derived display rows."
-      ]
-    },
-    {
-      "id": "REQ-6",
-      "text": "Resolve the current build/deployment failure so the updated app can successfully build and deploy with the new derived-row changes.",
-      "target": "both",
-      "source": {
-        "messageIds": [
-          "msg-10",
-          "msg-12"
-        ],
-        "quotes": [
-          "❌ Failed to build your app",
-          "❌ Application creation unsuccessful"
-        ]
-      },
-      "acceptanceCriteria": [
-        "A full build completes successfully after implementing the changes.",
-        "The deployed draft runs and the affected pages render without runtime errors."
+        "Monthly Transactions UI includes a Description search field (English placeholder text such as \"Search description...\").",
+        "Typing text filters results to only rows whose description contains the typed substring (case-insensitive).",
+        "Clearing the search text restores the unfiltered monthly results.",
+        "Search works in combination with the selected month and selected transaction type filters (i.e., it filters within the already month+type-filtered set).",
+        "Derived rows (Cheeti Deduction / Savings (10%)) do not cause crashes when searching; rows without descriptions are handled safely (e.g., treated as non-matches when search text is non-empty)."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under frontend/src/components/ui (read-only UI component sources).",
-    "Do not modify files under frontend/immutablePaths (e.g., frontend/src/hooks/useInternetIdentity.ts(x), frontend/src/hooks/useActor.ts, frontend/src/main.tsx).",
-    "Keep the stored transactions data model unchanged; do not add new persisted transactions for 10% savings or cheeti deductions."
+    "Do not edit any files under frontend/src/components/ui or any other immutablePaths listed in SYSTEM_CONTEXT.",
+    "Keep the backend canister interface unchanged for these changes (do not add new backend TransactionType variants for derived rows).",
+    "Do not persist derived (Savings (10%) / Cheeti Deduction) rows as stored transactions; they must remain calculated from existing localStorage-derived sources."
   ],
   "nonGoals": [
-    "Changing the 10% calculation or rounding rules already implemented.",
-    "Changing how balances are computed beyond what is necessary to render derived rows in lists.",
-    "Implementing backend persistence/linking for derived rows (i.e., no new backend transaction records)."
+    "Implementing new backend APIs or schema changes to store cheeti/savings as real transactions.",
+    "Adding advanced search features (regex, fuzzy scoring, multiple fields) beyond simple case-insensitive substring match on description.",
+    "Changing how daily savings (10%) and cheeti amounts are computed elsewhere in the app (only use existing derived/localStorage sources for the monthly view)."
   ],
   "imageRequirements": {
     "required": [],

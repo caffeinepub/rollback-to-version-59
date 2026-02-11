@@ -1,14 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Make the computed 10% savings and user-defined cheeti deductions appear as visible transaction rows across all transaction list views without changing stored data.
+**Goal:** Enhance the Monthly Transactions tab to support viewing derived “Cheeti Deduction” and “Savings (10%)” rows and enable description-based partial search.
 
 **Planned changes:**
-- Add derived, read-only transaction rows for “10% Savings” and “Cheeti Deduction” to Transaction History, Day-wise Transactions, Filter Transactions results, and Monthly Transactions (only when the computed amounts are non-zero for a date).
-- Ensure derived rows are clearly labeled in English and visually distinguishable from user-entered transactions, while remaining non-editable and non-deletable.
-- Source derived amounts from existing localStorage data and do not create any new persisted transaction records for these rows.
-- Update list grouping/sorting so derived rows appear under the correct date with consistent ordering across views, and ensure existing summaries/stats are not double-counted due to UI-only rows.
-- Resolve any frontend TypeScript/type mismatches caused by introducing derived display rows without changing backend canister interfaces.
-- Fix the current build/deployment failure so the app builds and deploys successfully with these changes.
+- Add two new selectable options to the Monthly tab “Transaction Type” dropdown: “Cheeti Deduction” and “Savings (10%)”, alongside existing transaction types.
+- When either new option is selected, populate the monthly table with the corresponding derived rows for the selected month using existing localStorage-derived sources (no backend changes; no persistence of these rows as transactions), and compute totals from only the displayed derived rows.
+- Add a Description search input to the Monthly tab that filters the currently displayed results via case-insensitive substring matching as the user types, safely handling rows with missing descriptions.
 
-**User-visible outcome:** Users see “10% Savings” and “Cheeti Deduction” as additional, clearly marked rows in history/daily/filter/monthly transaction lists (when applicable), reflecting deductions from main balance and additions to savings/cheeti, without being able to edit or delete them.
+**User-visible outcome:** In the Monthly tab, users can select “Cheeti Deduction” or “Savings (10%)” to see month-specific derived rows and accurate totals, and can instantly filter the current monthly results by typing part of a transaction description.

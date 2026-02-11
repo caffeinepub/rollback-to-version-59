@@ -2,13 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-make-the-computed-10-savings-deduction-and-the-user-defined-cheeti-daily-deduction-appear-as-visible-non-editable-non-deletable-transaction-rows-in-all-transaction-list-views-transaction-history-day-wise-transactions-filter-transactions-results-and-monthly-transactions",
-      "featureTitle": "Make the computed 10% savings deduction and the user-defined cheeti (daily deduction) appear as visible, non-editable, non-deletable transaction rows in all transaction list views: Transaction History, Day-wise Transactions, Filter Transactions results, and Monthly Transactions.",
+      "featureId": "feature-in-the-monthly-transactions-tab-extend-the-transaction-type-dropdown-to-include-two-additional-selectable-options-cheeti-deduction-and-savings-10-english-labels-these-options-must-be-selectable-alongside-the-existing-backend-transactiontype-options",
+      "featureTitle": "In the Monthly Transactions tab, extend the Transaction Type dropdown to include two additional selectable options: \"Cheeti Deduction\" and \"Savings (10%)\" (English labels). These options must be selectable alongside the existing backend TransactionType options.",
       "files": [
-        "frontend/src/components/DaywiseTransactions.tsx",
-        "frontend/src/components/FilterTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx",
-        "frontend/src/utils/derivedTransactions.ts"
+        "frontend/src/components/MonthlyTransactions.tsx"
       ],
       "components": [
         "authorization@3.0.0",
@@ -24,11 +21,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-derive-the-10-savings-amount-and-cheeti-amount-from-the-existing-localstorage-sources-used-by-the-app-and-keep-all-existing-stored-transactions-unchanged-i-e-do-not-physically-create-new-stored-transactions-for-these-derived-rows",
-      "featureTitle": "Derive the 10% savings amount and cheeti amount from the existing localStorage sources used by the app, and keep all existing stored transactions unchanged (i.e., do not physically create new stored transactions for these derived rows).",
+      "featureId": "feature-when-cheeti-deduction-or-savings-10-is-selected-in-the-monthly-transactions-tab-calculate-and-display-the-corresponding-monthly-rows-and-totals-based-on-the-app-s-existing-localstorage-derived-deduction-savings-sources-the-same-sources-used-by-the-derived-rows-utilities-without-creating-or-persisting-new-backend-transactions-the-monthly-table-must-show-only-the-derived-rows-for-the-selected-month-and-the-total-amount-must-be-the-sum-of-those-derived-amounts-for-that-month",
+      "featureTitle": "When \"Cheeti Deduction\" or \"Savings (10%)\" is selected in the Monthly Transactions tab, calculate and display the corresponding monthly rows and totals based on the app’s existing localStorage-derived deduction/savings sources (the same sources used by the derived rows utilities), without creating or persisting new backend transactions. The monthly table must show only the derived rows for the selected month, and the Total Amount must be the sum of those derived amounts for that month.",
       "files": [
-        "frontend/src/components/FilterTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/components/MonthlyTransactions.tsx",
         "frontend/src/utils/derivedTransactions.ts"
       ],
       "components": [
@@ -45,11 +41,10 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-ensure-derived-rows-do-not-break-existing-actions-users-cannot-edit-delete-derived-rows-and-edit-delete-continues-to-work-for-real-transactions-exactly-as-before",
-      "featureTitle": "Ensure derived rows do not break existing actions: users cannot edit/delete derived rows, and edit/delete continues to work for real transactions exactly as before.",
+      "featureId": "feature-in-the-monthly-transactions-tab-add-a-description-search-input-that-filters-the-currently-displayed-monthly-results-by-transaction-description-using-case-insensitive-partial-matching-substring-match-the-filter-must-apply-immediately-as-the-user-types-and-must-work-with-partial-input",
+      "featureTitle": "In the Monthly Transactions tab, add a Description search input that filters the currently displayed monthly results by transaction description using case-insensitive partial matching (substring match). The filter must apply immediately as the user types and must work with partial input.",
       "files": [
-        "frontend/src/components/DaywiseTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx"
+        "frontend/src/components/MonthlyTransactions.tsx"
       ],
       "components": [
         "authorization@3.0.0",
@@ -61,70 +56,6 @@
       ],
       "testIds": [
         "REQ-3"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-update-list-sorting-and-presentation-so-derived-rows-appear-under-the-correct-date-and-do-not-cause-duplicate-counting-in-existing-summary-stat-calculations",
-      "featureTitle": "Update list sorting and presentation so derived rows appear under the correct date and do not cause duplicate counting in existing summary/stat calculations.",
-      "files": [
-        "frontend/src/components/DaywiseTransactions.tsx",
-        "frontend/src/components/FilterTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx",
-        "frontend/src/utils/derivedTransactions.ts"
-      ],
-      "components": [
-        "authorization@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-4"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-fix-any-typescript-type-mismatches-introduced-by-displaying-derived-rows-since-they-are-not-part-of-the-backend-transactiontype-union-without-changing-backend-canister-interfaces",
-      "featureTitle": "Fix any TypeScript/type mismatches introduced by displaying derived rows (since they are not part of the backend TransactionType union) without changing backend canister interfaces.",
-      "files": [
-        "frontend/src/components/FilterTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx",
-        "frontend/src/utils/derivedTransactions.ts"
-      ],
-      "components": [
-        "authorization@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-5"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-resolve-the-current-build-deployment-failure-so-the-updated-app-can-successfully-build-and-deploy-with-the-new-derived-row-changes",
-      "featureTitle": "Resolve the current build/deployment failure so the updated app can successfully build and deploy with the new derived-row changes.",
-      "files": [
-        "frontend/src/components/FilterTransactions.tsx",
-        "frontend/src/components/TransactionHistory.tsx",
-        "frontend/src/utils/derivedTransactions.ts"
-      ],
-      "components": [
-        "authorization@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-6"
       ],
       "confidence": "high"
     }

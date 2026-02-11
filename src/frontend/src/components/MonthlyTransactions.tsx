@@ -3,6 +3,7 @@ import { useGetAllTransactions } from '../hooks/useQueries';
 import { TransactionType } from '../backend';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Calendar as CalendarIconLucide, FileDown } from 'lucide-react';
+import { CalendarIcon, Calendar as CalendarIconLucide, FileDown, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,20 +25,43 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { getDerivedRowsForMonth } from '../utils/derivedTransactions';
+import type { DerivedTransactionRow } from '../utils/derivedTransactions';
+
+// Extended type for the selector (backend types + derived types)
+type MonthlyTransactionTypeSelector = TransactionType | 'cheetiDeduction' | 'savings10Percent';
 
 export default function MonthlyTransactions() {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [selectedType, setSelectedType] = useState<TransactionType | ''>('');
+  const [selectedType, setSelectedType] = useState<MonthlyTransactionTypeSelector | ''>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const { data: transactions, isLoading, error } = useGetAllTransactions();
 
   // Filter transactions by selected month and type
   const filteredTransactions = useMemo(() => {
-    if (!transactions || !selectedType) return [];
+    if (!selectedType) return [];
 
     const selectedYear = selectedMonth.getFullYear();
     const selectedMonthNum = selectedMonth.getMonth();
+
+    // Handle derived types
+    if (selectedType === 'cheetiDeduction' || selectedType === 'savings10Percent') {
+      const derivedRows = getDerivedRowsForMonth(selectedYear, selectedMonthNum);
+      
+      // Filter by derived type
+      return derivedRows.filter((row) => {
+        if (selectedType === 'cheetiDeduction') {
+          return row.derivedType === 'Cheeti Deduction';
+        } else {
+          return row.derivedType === '10% Savings';
+        }
+      });
+    }
+
+    // Handle real transaction types
+    if (!transactions) return [];
 
     return transactions.filter((t) => {
       // Check transaction type
@@ -53,10 +77,37 @@ export default function MonthlyTransactions() {
     });
   }, [transactions, selectedMonth, selectedType]);
 
+  // Apply description search filter
+  const searchFilteredTransactions = useMemo(() => {
+    if (!searchQuery.trim()) return filteredTransactions;
+
+    const lowerQuery = searchQuery.toLowerCase();
+    
+    return filteredTransactions.filter((item) => {
+      // For derived rows
+      if ('isDerived' in item && item.isDerived) {
+        const derivedRow = item as DerivedTransactionRow;
+        // Derived rows have a derivedType that can be searched
+        return derivedRow.derivedType.toLowerCase().includes(lowerQuery);
+      }
+      
+      // For real transactions
+      const description = (item as any).description || '';
+      return description.toLowerCase().includes(lowerQuery);
+    });
+  }, [filteredTransactions, searchQuery]);
+
   // Calculate totals
   const totalAmount = useMemo(() => {
-    return filteredTransactions.reduce((sum, t) => sum + t.amount, 0n);
-  }, [filteredTransactions]);
+    return searchFilteredTransactions.reduce((sum, item) => {
+      if ('isDerived' in item && item.isDerived) {
+        const derivedRow = item as DerivedTransactionRow;
+        // Derived amounts are negative, so we take absolute value
+        return sum + (derivedRow.amount < 0n ? -derivedRow.amount : derivedRow.amount);
+      }
+      return sum + (item as any).amount;
+    }, 0n);
+  }, [searchFilteredTransactions]);
 
   const formatAmount = (amount: bigint) => {
     return new Intl.NumberFormat('en-IN', {
@@ -71,7 +122,10 @@ export default function MonthlyTransactions() {
     return format(new Date(dateMs), 'dd MMM yyyy, hh:mm a');
   };
 
-  const getTransactionTypeLabel = (type: TransactionType): string => {
+  const getTransactionTypeLabel = (type: MonthlyTransactionTypeSelector): string => {
+    if (type === 'cheetiDeduction') return 'Cheeti Deduction';
+    if (type === 'savings10Percent') return 'Savings (10%)';
+    
     const labels: Record<TransactionType, string> = {
       [TransactionType.cashIn]: 'Cash In',
       [TransactionType.cashOut]: 'Cash Out',
@@ -80,10 +134,13 @@ export default function MonthlyTransactions() {
       [TransactionType.savingsOut]: 'Savings (10%) Out',
       [TransactionType.deductionsOut]: 'Deductions Out',
     };
-    return labels[type] || 'Unknown';
+    return labels[type as TransactionType] || 'Unknown';
   };
 
-  const getTransactionTypeColor = (type: TransactionType): string => {
+  const getTransactionTypeColor = (type: MonthlyTransactionTypeSelector): string => {
+    if (type === 'cheetiDeduction') return 'bg-amber-100 text-amber-800 border-amber-300';
+    if (type === 'savings10Percent') return 'bg-purple-100 text-purple-800 border-purple-300';
+    
     const colors: Record<TransactionType, string> = {
       [TransactionType.cashIn]: 'bg-green-100 text-green-800 border-green-300',
       [TransactionType.cashOut]: 'bg-red-100 text-red-800 border-red-300',
@@ -92,7 +149,7 @@ export default function MonthlyTransactions() {
       [TransactionType.savingsOut]: 'bg-purple-100 text-purple-800 border-purple-300',
       [TransactionType.deductionsOut]: 'bg-amber-100 text-amber-800 border-amber-300',
     };
-    return colors[type] || 'bg-gray-100 text-gray-800 border-gray-300';
+    return colors[type as TransactionType] || 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
   // Generate month options for the past 12 months
@@ -112,12 +169,13 @@ export default function MonthlyTransactions() {
   };
 
   const handleTypeSelect = (value: string) => {
-    setSelectedType(value as TransactionType);
+    setSelectedType(value as MonthlyTransactionTypeSelector);
     setIsTypeDropdownOpen(false);
+    setSearchQuery(''); // Clear search when changing type
   };
 
   const generatePDF = () => {
-    if (!selectedType || filteredTransactions.length === 0) return;
+    if (!selectedType || searchFilteredTransactions.length === 0) return;
 
     const pdfContent = `
 <!DOCTYPE html>
@@ -231,6 +289,14 @@ export default function MonthlyTransactions() {
       background-color: #fef3c7;
       color: #92400e;
     }
+    .badge-cheeti {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    .badge-savings10 {
+      background-color: #e9d5ff;
+      color: #6b21a8;
+    }
     .amount-positive {
       color: #059669;
       font-weight: bold;
@@ -253,14 +319,14 @@ export default function MonthlyTransactions() {
   <div class="header">
     <h1>APJ ENTERPRISES</h1>
     <h2>Monthly Transaction Report</h2>
-    <h2>${format(selectedMonth, 'MMMM yyyy')} - ${getTransactionTypeLabel(selectedType as TransactionType)}</h2>
+    <h2>${format(selectedMonth, 'MMMM yyyy')} - ${getTransactionTypeLabel(selectedType as MonthlyTransactionTypeSelector)}</h2>
   </div>
 
   <div class="summary">
     <div class="summary-grid">
       <div class="summary-item">
         <div class="summary-label">Total Transactions</div>
-        <div class="summary-value">${filteredTransactions.length}</div>
+        <div class="summary-value">${searchFilteredTransactions.length}</div>
       </div>
       <div class="summary-item">
         <div class="summary-label">Total Amount</div>
@@ -279,9 +345,29 @@ export default function MonthlyTransactions() {
       </tr>
     </thead>
     <tbody>
-      ${filteredTransactions
-        .map(
-          (t) => `
+      ${searchFilteredTransactions
+        .map((item) => {
+          if ('isDerived' in item && item.isDerived) {
+            const derivedRow = item as DerivedTransactionRow;
+            const badgeClass = derivedRow.derivedType === 'Cheeti Deduction' ? 'badge-cheeti' : 'badge-savings10';
+            const amount = derivedRow.amount < 0n ? -derivedRow.amount : derivedRow.amount;
+            return `
+      <tr>
+        <td>${formatDate(derivedRow.date)}</td>
+        <td>
+          <span class="badge ${badgeClass}">
+            ${derivedRow.derivedType}
+          </span>
+        </td>
+        <td class="amount-negative">
+          ${formatAmount(amount)}
+        </td>
+        <td>${derivedRow.derivedType}</td>
+      </tr>
+      `;
+          } else {
+            const t = item as any;
+            return `
       <tr>
         <td>${formatDate(t.date)}</td>
         <td>
@@ -294,15 +380,16 @@ export default function MonthlyTransactions() {
         </td>
         <td>${t.description || '-'}</td>
       </tr>
-      `
-        )
+      `;
+          }
+        })
         .join('')}
     </tbody>
   </table>
 
   <div class="footer">
     <p>Generated on ${format(new Date(), 'PPP')} at ${format(new Date(), 'pp')}</p>
-    <p>© 2025 APJ ENTERPRISES. All rights reserved.</p>
+    <p>© 2026 APJ ENTERPRISES. All rights reserved.</p>
   </div>
 </body>
 </html>
@@ -431,10 +518,42 @@ export default function MonthlyTransactions() {
                   >
                     Deductions Out
                   </SelectItem>
+                  <SelectItem
+                    value="cheetiDeduction"
+                    className="monthly-type-item bg-amber-50 text-gray-900 hover:bg-amber-100 focus:bg-amber-100 rounded-lg transition-all duration-200 font-semibold my-1"
+                  >
+                    Cheeti Deduction
+                  </SelectItem>
+                  <SelectItem
+                    value="savings10Percent"
+                    className="monthly-type-item bg-purple-50 text-gray-900 hover:bg-purple-100 focus:bg-purple-100 rounded-lg transition-all duration-200 font-semibold my-1"
+                  >
+                    Savings (10%)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {/* Description Search Field */}
+          {selectedType && (
+            <div className="space-y-2">
+              <Label htmlFor="search" className="text-gray-900 font-bold text-base">
+                Search Description
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                  id="search"
+                  type="text"
+                  placeholder="Search description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-12 rounded-xl border-2 border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-400 transition-all duration-200 text-gray-900 font-medium"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Summary Cards */}
           {selectedType && (
@@ -445,7 +564,7 @@ export default function MonthlyTransactions() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-blue-600">
-                    {filteredTransactions.length}
+                    {searchFilteredTransactions.length}
                   </div>
                 </CardContent>
               </Card>
@@ -463,7 +582,7 @@ export default function MonthlyTransactions() {
           )}
 
           {/* Generate PDF Button */}
-          {selectedType && filteredTransactions.length > 0 && (
+          {selectedType && searchFilteredTransactions.length > 0 && (
             <Button
               onClick={generatePDF}
               className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-black font-bold shadow-lg transition-all duration-300 hover:shadow-xl h-12 text-base rounded-xl"
@@ -492,59 +611,92 @@ export default function MonthlyTransactions() {
                 Please select a transaction type to view monthly transactions.
               </AlertDescription>
             </Alert>
-          ) : filteredTransactions.length === 0 ? (
-            <Alert className="bg-amber-50 border-amber-200 shadow-md">
-              <AlertDescription className="text-amber-900 font-semibold">
-                No {getTransactionTypeLabel(selectedType as TransactionType)} transactions found for{' '}
-                {format(selectedMonth, 'MMMM yyyy')}.
+          ) : searchFilteredTransactions.length === 0 ? (
+            <Alert className="bg-yellow-50 border-yellow-200 shadow-md">
+              <AlertDescription className="text-yellow-900 font-semibold">
+                No transactions found for {getTransactionTypeLabel(selectedType as MonthlyTransactionTypeSelector)} in {format(selectedMonth, 'MMMM yyyy')}.
+                {searchQuery && ' Try adjusting your search.'}
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="rounded-xl border-2 border-gray-200 shadow-inner bg-white">
-              <div className="overflow-hidden rounded-xl">
-                <div className="h-[600px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="bg-gradient-to-r from-gray-100 to-gray-200 sticky top-0 z-10">
-                      <TableRow>
-                        <TableHead className="font-bold text-gray-900 text-base whitespace-nowrap">Date & Time</TableHead>
-                        <TableHead className="font-bold text-gray-900 text-base whitespace-nowrap">Type</TableHead>
-                        <TableHead className="font-bold text-gray-900 text-base whitespace-nowrap">Amount</TableHead>
-                        <TableHead className="font-bold text-gray-900 text-base whitespace-nowrap">Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTransactions.map((transaction, index) => (
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-lg">
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-teal-500 to-blue-500">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-white font-bold text-base">Date & Time</TableHead>
+                      <TableHead className="text-white font-bold text-base">Type</TableHead>
+                      <TableHead className="text-white font-bold text-base">Amount</TableHead>
+                      <TableHead className="text-white font-bold text-base">Description</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchFilteredTransactions.map((item, index) => {
+                      // Handle derived rows
+                      if ('isDerived' in item && item.isDerived) {
+                        const derivedRow = item as DerivedTransactionRow;
+                        const amount = derivedRow.amount < 0n ? -derivedRow.amount : derivedRow.amount;
+                        return (
+                          <TableRow
+                            key={`derived-${derivedRow.derivedType}-${derivedRow.date}-${index}`}
+                            className={`${
+                              index % 2 === 0 ? 'bg-amber-50' : 'bg-white'
+                            } hover:bg-amber-100 transition-colors duration-150`}
+                          >
+                            <TableCell className="font-medium text-gray-900">
+                              {formatDate(derivedRow.date)}
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                {derivedRow.derivedType}
+                              </span>
+                            </TableCell>
+                            <TableCell className="font-bold text-red-600">
+                              {formatAmount(amount)}
+                            </TableCell>
+                            <TableCell className="text-gray-700 font-medium">
+                              {derivedRow.derivedType}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      // Handle real transactions
+                      const t = item as any;
+                      return (
                         <TableRow
-                          key={transaction.id.toString()}
+                          key={`txn-${t.id}`}
                           className={`${
-                            index % 2 === 0 ? 'bg-white' : 'bg-gradient-to-r from-blue-50 to-teal-50'
-                          } hover:bg-gradient-to-r hover:from-blue-100 hover:to-teal-100 transition-all duration-200`}
+                            index % 2 === 0 ? 'bg-blue-50' : 'bg-white'
+                          } hover:bg-blue-100 transition-colors duration-150`}
                         >
-                          <TableCell className="font-semibold text-gray-900 whitespace-nowrap">
-                            {formatDate(transaction.date)}
+                          <TableCell className="font-medium text-gray-900">
+                            {formatDate(t.date)}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap">
+                          <TableCell>
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border-2 ${getTransactionTypeColor(
-                                transaction.transactionType
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border ${getTransactionTypeColor(
+                                t.transactionType
                               )}`}
                             >
-                              {getTransactionTypeLabel(transaction.transactionType)}
+                              {getTransactionTypeLabel(t.transactionType)}
                             </span>
                           </TableCell>
-                          <TableCell className="font-bold text-gray-900 text-lg whitespace-nowrap">
-                            {formatAmount(transaction.amount)}
+                          <TableCell
+                            className={`font-bold ${
+                              t.transactionType.includes('In') ? 'text-green-600' : 'text-red-600'
+                            }`}
+                          >
+                            {formatAmount(t.amount)}
                           </TableCell>
-                          <TableCell className="text-gray-700 font-medium">
-                            <div className="max-w-md break-words whitespace-normal">
-                              {transaction.description || '-'}
-                            </div>
+                          <TableCell className="text-gray-700 font-medium max-w-xs break-words">
+                            {t.description || '-'}
                           </TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           )}

@@ -195,3 +195,33 @@ export function getDerivedRowsForDateRange(startDate: Date, endDate: Date): Deri
   
   return rows;
 }
+
+// Get derived rows for a specific month (for monthly view)
+export function getDerivedRowsForMonth(year: number, month: number): DerivedTransactionRow[] {
+  const tenPercentSavings = getLocalTenPercentSavings();
+  const userDeductions = getLocalUserDeductions();
+  
+  const rows: DerivedTransactionRow[] = [];
+  
+  // Get all unique dates from both sources
+  const allDateKeys = new Set<string>();
+  Object.keys(tenPercentSavings).forEach(key => allDateKeys.add(key));
+  Object.keys(userDeductions).forEach(key => allDateKeys.add(key));
+  
+  // Filter by month and create rows
+  allDateKeys.forEach((dateKey) => {
+    const dateNs = BigInt(dateKey);
+    const dateMs = Number(dateNs) / 1_000_000;
+    const date = new Date(dateMs);
+    
+    if (date.getFullYear() === year && date.getMonth() === month) {
+      const derivedRows = getDerivedRowsForDate(dateNs);
+      rows.push(...derivedRows);
+    }
+  });
+  
+  // Sort by date descending
+  rows.sort((a, b) => Number(b.date) - Number(a.date));
+  
+  return rows;
+}

@@ -1,58 +1,32 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Track and display 10% savings and user-defined cheeti deductions as visible transaction entries across the app (daily, monthly, filter pages, and history), showing them as deducted from main cash balance and added to savings/cheeti categories respectively.",
+  "summary": "New project",
   "architectural_notes": [],
-  "known_issues": [
-    "App build/deployment is failing (application creation/build unsuccessful)."
-  ],
-  "isFixRequest": true,
+  "known_issues": [],
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-make-the-computed-10-savings-deduction-and-the-user-defined-cheeti-daily-deduction-appear-as-visible-non-editable-non-deletable-transaction-rows-in-all-transaction-list-views-transaction-history-day-wise-transactions-filter-transactions-results-and-monthly-transactions",
-      "title": "Make the computed 10% savings deduction and the user-defined cheeti (daily deduction) appear as visible, non-editable, non-deletable transaction rows in all transaction list views: Transaction History, Day-wise Transactions, Filter Transactions results, and Monthly Transactions.",
+      "id": "feature-in-the-monthly-transactions-tab-extend-the-transaction-type-dropdown-to-include-two-additional-selectable-options-cheeti-deduction-and-savings-10-english-labels-these-options-must-be-selectable-alongside-the-existing-backend-transactiontype-options",
+      "title": "In the Monthly Transactions tab, extend the Transaction Type dropdown to include two additional selectable options: \"Cheeti Deduction\" and \"Savings (10%)\" (English labels). These options must be selectable alongside the existing backend TransactionType options.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-derive-the-10-savings-amount-and-cheeti-amount-from-the-existing-localstorage-sources-used-by-the-app-and-keep-all-existing-stored-transactions-unchanged-i-e-do-not-physically-create-new-stored-transactions-for-these-derived-rows",
-      "title": "Derive the 10% savings amount and cheeti amount from the existing localStorage sources used by the app, and keep all existing stored transactions unchanged (i.e., do not physically create new stored transactions for these derived rows).",
+      "id": "feature-when-cheeti-deduction-or-savings-10-is-selected-in-the-monthly-transactions-tab-calculate-and-display-the-corresponding-monthly-rows-and-totals-based-on-the-app-s-existing-localstorage-derived-deduction-savings-sources-the-same-sources-used-by-the-derived-rows-utilities-without-creating-or-persisting-new-backend-transactions-the-monthly-table-must-show-only-the-derived-rows-for-the-selected-month-and-the-total-amount-must-be-the-sum-of-those-derived-amounts-for-that-month",
+      "title": "When \"Cheeti Deduction\" or \"Savings (10%)\" is selected in the Monthly Transactions tab, calculate and display the corresponding monthly rows and totals based on the app’s existing localStorage-derived deduction/savings sources (the same sources used by the derived rows utilities), without creating or persisting new backend transactions. The monthly table must show only the derived rows for the selected month, and the Total Amount must be the sum of those derived amounts for that month.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-ensure-derived-rows-do-not-break-existing-actions-users-cannot-edit-delete-derived-rows-and-edit-delete-continues-to-work-for-real-transactions-exactly-as-before",
-      "title": "Ensure derived rows do not break existing actions: users cannot edit/delete derived rows, and edit/delete continues to work for real transactions exactly as before.",
+      "id": "feature-in-the-monthly-transactions-tab-add-a-description-search-input-that-filters-the-currently-displayed-monthly-results-by-transaction-description-using-case-insensitive-partial-matching-substring-match-the-filter-must-apply-immediately-as-the-user-types-and-must-work-with-partial-input",
+      "title": "In the Monthly Transactions tab, add a Description search input that filters the currently displayed monthly results by transaction description using case-insensitive partial matching (substring match). The filter must apply immediately as the user types and must work with partial input.",
       "reqIds": [
         "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-list-sorting-and-presentation-so-derived-rows-appear-under-the-correct-date-and-do-not-cause-duplicate-counting-in-existing-summary-stat-calculations",
-      "title": "Update list sorting and presentation so derived rows appear under the correct date and do not cause duplicate counting in existing summary/stat calculations.",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-fix-any-typescript-type-mismatches-introduced-by-displaying-derived-rows-since-they-are-not-part-of-the-backend-transactiontype-union-without-changing-backend-canister-interfaces",
-      "title": "Fix any TypeScript/type mismatches introduced by displaying derived rows (since they are not part of the backend TransactionType union) without changing backend canister interfaces.",
-      "reqIds": [
-        "REQ-5"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-resolve-the-current-build-deployment-failure-so-the-updated-app-can-successfully-build-and-deploy-with-the-new-derived-row-changes",
-      "title": "Resolve the current build/deployment failure so the updated app can successfully build and deploy with the new derived-row changes.",
-      "reqIds": [
-        "REQ-6"
       ],
       "version": 1
     }
@@ -60,12 +34,18 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Make 10% savings and user-defined cheeti deductions visible as transaction entries across all transaction views (daily/monthly/filter/history), reflected as deduction from main cash balance and addition to savings and cheeti categories.",
+      "summary": "Monthly tab: add 'cheeti deduction' and 'savings (10%)' to Transaction Type dropdown and calculate accordingly",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Monthly tab: add description-wise transaction search with partial input matching",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "projectName": "Show 10% savings and cheeti deductions as visible entries in transaction lists (history/daily/monthly/filter)",
+  "projectName": "APJ ENTERPRISES",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }
