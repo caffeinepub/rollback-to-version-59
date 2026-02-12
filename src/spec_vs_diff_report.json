@@ -1,63 +1,31 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-12T10:28:22.254Z",
-  "summary": "Diff introduces a new utility to determine transaction direction from `transactionType` and adds/updates several components to use direction-based color classes. However, due to truncation and limited evidence, it is not fully verifiable that all required amount displays (including Monthly/Day-wise HTML reports and FilterTransactions real transaction rows) were updated and that no sign-based logic remains.",
+  "generatedAt": "2026-02-12T10:37:04.014Z",
+  "summary": "The diff shows updates to MonthlyTransactions with safer defaults (e.g., unknown transaction type label) and some filtering logic, but the MonthlyTransactions change is truncated, so key acceptance criteria around the actual runtime-error fix and search/filter hardening cannot be fully verified from the provided evidence.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Monthly Transactions HTML report uses outgoing=red/incoming=green consistently for the amount cell.",
-      "reason": "MonthlyTransactions.tsx is truncated and the diff summary does not show any changes to the HTML report generation portion (if present) or evidence that amount coloring was applied in the generated report.",
+      "requirement": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
+      "reason": "MonthlyTransactions.tsx is truncated before the full render/search/filter logic and any explicit error-boundary/guard changes; the diff summary does not provide enough evidence to confirm the specific runtime exception causing the blank screen is addressed and that switching to the Monthly tab produces no uncaught exceptions.",
       "evidence": [
         "frontend/src/components/MonthlyTransactions.tsx (truncated)"
       ]
     },
     {
-      "id": "REQ-1",
-      "requirement": "Day-wise Transactions generated HTML report uses outgoing=red/incoming=green for all amount cells and summary lines.",
-      "reason": "DaywiseTransactions.tsx is truncated and the diff summary does not show the HTML report generation code/strings updated to apply the new direction-based coloring.",
+      "id": "REQ-2",
+      "requirement": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+      "reason": "The diff shows a fallback label for unknown transaction types, but the search portion is explicitly truncated (\"// Apply sear...\") so there is no visible evidence that searching safely handles undefined/empty descriptions or that all filter modes are guarded against unexpected row shapes without crashing.",
       "evidence": [
-        "frontend/src/components/DaywiseTransactions.tsx (truncated)"
-      ]
-    },
-    {
-      "id": "REQ-1",
-      "requirement": "Filter Transactions: amount text for filtered real transaction rows is red for outgoing and green for incoming using transactionType (and derived rows treated as outgoing/red).",
-      "reason": "FilterTransactions.tsx only shows an import of `getDerivedRowAmountColor` (for derived rows). There is no visible evidence that real transaction rows use `getAmountColorFromType`/direction-based coloring, and the file is truncated before the rendering section.",
-      "evidence": [
-        "frontend/src/components/FilterTransactions.tsx (truncated)"
-      ]
-    },
-    {
-      "id": "REQ-1",
-      "requirement": "No amount coloring uses `Number(amount) >= 0` as the primary determinant for in/out coloring.",
-      "reason": "The diff summary does not show the actual amount-rendering sections in all components (files are truncated), so it cannot be confirmed that any prior sign-based coloring logic was removed everywhere.",
-      "evidence": [
-        "frontend/src/components/TransactionHistory.tsx (truncated)",
-        "frontend/src/components/MonthlyTransactions.tsx (truncated)",
-        "frontend/src/components/DaywiseTransactions.tsx (truncated)",
-        "frontend/src/components/FilterTransactions.tsx (truncated)"
+        "frontend/src/components/MonthlyTransactions.tsx (truncated)"
       ]
     }
   ],
-  "hallucinated_features": [
-    {
-      "description": "Added icon background and icon color helpers for transaction direction (green/red) beyond just amount text coloring.",
-      "reason": "BuildRequest only asks to color transaction amount text by direction; icon color/background APIs are additional UI behavior not requested.",
-      "evidence": [
-        "frontend/src/utils/transactionDirection.ts (getIconBgColor, getIconColor)",
-        "frontend/src/components/TransactionHistory.tsx (imports getIconBgColor, getIconColor)"
-      ]
-    }
-  ],
-  "confidence": 0.55,
+  "hallucinated_features": [],
+  "confidence": 0.42,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/components/DaywiseTransactions.tsx",
-    "frontend/src/components/FilterTransactions.tsx",
     "frontend/src/components/MonthlyTransactions.tsx",
-    "frontend/src/components/TransactionHistory.tsx",
-    "frontend/src/utils/transactionDirection.ts",
     "project_state.json"
   ]
 }

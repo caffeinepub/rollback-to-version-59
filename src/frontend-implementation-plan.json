@@ -1,43 +1,37 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Color transaction amount text by transaction direction across all tabs and reports",
+  "title": "Fix Monthly tab blank screen and harden Monthly Transactions rendering",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Use transactionType (not numeric sign) to consistently color transaction amount text: outgoing=red, incoming=green across all tabs/views and generated HTML reports, including derived rows.",
+      "summary": "Fix the runtime error triggered when opening the Dashboard \"Monthly\" tab so the Monthly Transactions view renders reliably.",
       "acceptanceCriteria": [
-        "In Transaction History (frontend/src/components/TransactionHistory.tsx), amount text is red for outgoing transaction types (cashOut, upiOut, savingsOut, deductionsOut) and green for incoming transaction types (cashIn, upiIn), regardless of whether stored amounts are positive.",
-        "In Monthly Transactions (frontend/src/components/MonthlyTransactions.tsx), amount text in the on-screen table is red for outgoing and green for incoming, and the same rule is applied in the generated HTML report (the amount cell uses outgoing=red/incoming=green consistently).",
-        "In Day-wise Transactions (frontend/src/components/DaywiseTransactions.tsx), all amount text rendered for transaction rows is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red). The generated day-wise HTML report also uses outgoing=red/incoming=green for all amount cells and summary lines.",
-        "In Filter Transactions (frontend/src/components/FilterTransactions.tsx), amount text in the filtered transaction results list/table is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red).",
-        "No amount coloring uses `Number(amount) >= 0` as the primary determinant for in/out coloring (direction must come from transaction type / derived-row kind)."
+        "Clicking the \"Monthly\" tab no longer results in a blank screen.",
+        "The Monthly Transactions view renders successfully on first load (even with no transactions).",
+        "No uncaught exceptions are thrown in the browser console when switching to the Monthly tab."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/utils/transactionDirection.ts",
-          "operation": "create",
-          "description": "Add a shared direction helper that classifies incoming vs outgoing using TransactionType (cashIn/upiIn=incoming; cashOut/upiOut/savingsOut/deductionsOut=outgoing) and provides reusable helpers for choosing amount text color classes for (a) real transactions and (b) derived rows (always outgoing)."
-        },
-        {
-          "path": "frontend/src/components/TransactionHistory.tsx",
+          "path": "frontend/src/components/MonthlyTransactions.tsx",
           "operation": "modify",
-          "description": "Replace any amount/icon color decisions based on Number(amount) sign with direction derived from transaction.transactionType (incoming=green, outgoing=red). Apply the same outgoing treatment (red) to derived rows’ amount text to keep behavior consistent across the transaction views."
-        },
+          "description": "Remove the crashing Monthly type filter setup by replacing the Select's empty-string option with a non-empty sentinel (e.g., \"all\") and updating the component state/filtering/PDF label logic accordingly (Radix/shadcn Select items must not use an empty value). Ensure the Monthly tab can mount without throwing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Make Monthly Transactions filtering/search resilient to partial or unexpected transaction data so the UI never crashes and always renders safe fallbacks.",
+      "acceptanceCriteria": [
+        "Typing into the Monthly search box does not crash the page even if some transactions have empty/undefined descriptions.",
+        "Filtering by each transaction type option (and derived row types) does not crash the page and produces a stable rendered table state.",
+        "When an unexpected/unknown transaction type is encountered, the UI displays a reasonable fallback label (e.g., \"Unknown\") and continues rendering."
+      ],
+      "file_operations": [
         {
           "path": "frontend/src/components/MonthlyTransactions.tsx",
           "operation": "modify",
-          "description": "Update the on-screen monthly transactions table amount cell styling to use direction derived from transactionType (and derived rows treated as outgoing). Update the generated HTML report logic so the amount cell class is chosen via transaction type direction rather than string checks/sign checks, ensuring outgoing=red and incoming=green consistently."
-        },
-        {
-          "path": "frontend/src/components/DaywiseTransactions.tsx",
-          "operation": "modify",
-          "description": "Update all rendered day-wise transaction row amount text to use transactionType direction (incoming=green, outgoing=red), and treat derived deduction/savings rows as outgoing (red). Update the generated day-wise HTML report to use direction-based classes for both the summary lines (cashIn/upiIn incoming; cashOut/upiOut and deductions outgoing) and transaction rows, eliminating Number(amount) >= 0 based in/out coloring."
-        },
-        {
-          "path": "frontend/src/components/FilterTransactions.tsx",
-          "operation": "modify",
-          "description": "Update filtered transaction results amount styling so real transactions use transactionType direction (incoming=green, outgoing=red) and derived rows are treated as outgoing (red). Remove any transaction-row in/out color logic based primarily on numeric sign."
+          "description": "Harden search and row rendering against data-shape issues: safely coerce description to a string for searching (e.g., (description ?? '').toLowerCase()), guard any string operations, and ensure rendering uses fallbacks when fields are missing. Add a safe transaction-type labeling strategy that tolerates unexpected values (keep a visible fallback label like \"Unknown\" and avoid calling transaction-type helpers with invalid values)."
         }
       ]
     }

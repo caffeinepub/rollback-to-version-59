@@ -1,37 +1,52 @@
 {
   "kind": "build_request",
-  "title": "Color transaction amount text by direction (Outgoing=red, Incoming=green) across all tabs",
-  "priority": "normal",
+  "title": "Fix blank screen when clicking the Monthly tab",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update all transaction amount displays to color outgoing amounts red and incoming amounts green across every tab and every transaction view, using transaction direction (transactionType) rather than the numeric sign of the amount.",
+      "text": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-12"
+          "recent-messages-6"
         ],
         "quotes": [
-          "Color the amount font red in color which is outgoing and like wise incoming should be in green, do this in every tab and transaction"
+          "As soon as \"monthly\" tab is clicked screen is going blank , fix this"
         ]
       },
       "acceptanceCriteria": [
-        "In Transaction History (frontend/src/components/TransactionHistory.tsx), amount text is red for outgoing transaction types (cashOut, upiOut, savingsOut, deductionsOut) and green for incoming transaction types (cashIn, upiIn), regardless of whether stored amounts are positive.",
-        "In Monthly Transactions (frontend/src/components/MonthlyTransactions.tsx), amount text in the on-screen table is red for outgoing and green for incoming, and the same rule is applied in the generated HTML report (the amount cell uses outgoing=red/incoming=green consistently).",
-        "In Day-wise Transactions (frontend/src/components/DaywiseTransactions.tsx), all amount text rendered for transaction rows is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red). The generated day-wise HTML report also uses outgoing=red/incoming=green for all amount cells and summary lines.",
-        "In Filter Transactions (frontend/src/components/FilterTransactions.tsx), amount text in the filtered transaction results list/table is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red).",
-        "No amount coloring uses `Number(amount) >= 0` as the primary determinant for in/out coloring (direction must come from transaction type / derived-row kind)."
+        "Clicking the \"Monthly\" tab no longer results in a blank screen.",
+        "The Monthly Transactions view renders successfully on first load (even with no transactions).",
+        "No uncaught exceptions are thrown in the browser console when switching to the Monthly tab."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "recent-messages-6"
+        ],
+        "quotes": [
+          "As soon as \"monthly\" tab is clicked screen is going blank , fix this"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Typing into the Monthly search box does not crash the page even if some transactions have empty/undefined descriptions.",
+        "Filtering by each transaction type option (and derived row types) does not crash the page and produces a stable rendered table state.",
+        "When an unexpected/unknown transaction type is encountered, the UI displays a reasonable fallback label (e.g., \"Unknown\") and continues rendering."
       ]
     }
   ],
   "constraints": [
-    "Do not edit files under frontend/src/components/ui (shadcn components); compose them instead.",
-    "Do not modify immutable hook files listed in SYSTEM_CONTEXT (useInternetIdentity, useActor, main.tsx).",
-    "Backend remains single-actor; no backend changes are required for this UI-only styling update."
+    "Do not modify any files under frontend/src/components/ui (Shadcn UI components are read-only).",
+    "Do not modify files listed in frontend.immutablePaths (compose around them instead)."
   ],
   "nonGoals": [
-    "Changing how amounts are stored/calculated in the backend (e.g., making outgoing amounts negative).",
-    "Adding new transaction types or new tabs/features."
+    "No backend/canister logic changes are required unless the frontend fix definitively depends on backend type/schema changes.",
+    "No new features beyond fixing the Monthly tab blank-screen bug and making the view resilient to bad/partial data."
   ],
   "imageRequirements": {
     "required": [],

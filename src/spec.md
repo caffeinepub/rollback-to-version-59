@@ -1,13 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Color all transaction amount text consistently by transaction direction (outgoing = red, incoming = green) across every tab and transaction view, using `transactionType` rather than numeric sign.
+**Goal:** Fix the runtime error that causes a blank screen when clicking the “Monthly” tab, and make the Monthly Transactions view resilient to common bad/partial data shapes.
 
 **Planned changes:**
-- Update amount rendering in Transaction History to apply red/green styling based on outgoing (cashOut, upiOut, savingsOut, deductionsOut) vs incoming (cashIn, upiIn) transaction types.
-- Update Monthly Transactions on-screen table amount styling to use the same outgoing/incoming rule, and apply the same colors in the generated HTML report.
-- Update Day-wise Transactions amount styling for all rendered rows so outgoing is red and incoming is green, treating derived deduction/savings rows as outgoing (red), including the generated day-wise HTML report (rows and summary lines).
-- Update Filter Transactions amount styling in filtered results to use the same outgoing/incoming rule, treating derived deduction/savings rows as outgoing (red).
-- Remove/avoid any amount-coloring logic that uses `Number(amount) >= 0` as the primary determinant, relying on transaction type / derived-row kind instead.
+- Identify and fix the frontend runtime exception triggered when opening the Dashboard “Monthly” tab so the view renders reliably on first load.
+- Add defensive handling in the Monthly Transactions UI for missing/empty description values, unexpected/unknown transactionType values, and other common data-shape issues during search/filtering to prevent crashes and provide safe fallback labels.
 
-**User-visible outcome:** In every transaction list/table and generated report, outgoing amounts appear in red and incoming amounts appear in green, consistently across all tabs and views.
+**User-visible outcome:** Clicking the “Monthly” tab reliably shows the Monthly Transactions view (even with no transactions), and searching/filtering no longer causes the page to go blank or throw console errors when transaction data is incomplete or unexpected.

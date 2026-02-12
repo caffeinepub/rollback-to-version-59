@@ -1,29 +1,32 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project renamed to APJ ENTERPRISES; update UI to color transaction amounts based on direction across the app.",
+  "summary": "New project",
   "architectural_notes": [],
-  "known_issues": [],
-  "isFixRequest": false,
+  "known_issues": [
+    "Clicking the \"monthly\" tab causes the screen to go blank."
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-update-all-transaction-amount-displays-to-color-outgoing-amounts-red-and-incoming-amounts-green-across-every-tab-and-every-transaction-view-using-transaction-direction-transactiontype-rather-than-the-numeric-sign-of-the-amount",
-      "title": "Update all transaction amount displays to color outgoing amounts red and incoming amounts green across every tab and every transaction view, using transaction direction (transactionType) rather than the numeric sign of the amount.",
+      "id": "feature-fix-the-runtime-error-that-causes-the-app-to-render-a-blank-screen-when-the-user-clicks-the-monthly-tab-in-the-dashboard",
+      "title": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
-    }
-  ],
-  "new_feature_requests": [
+    },
     {
-      "id": "AR-1",
-      "summary": "Color outgoing transaction amounts red and incoming amounts green across every tab and all transaction views.",
-      "reqIds": [],
-      "status": "pending"
+      "id": "feature-harden-the-monthly-transactions-ui-against-common-data-shape-issues-so-it-cannot-crash-during-filtering-searching-e-g-missing-empty-description-values-unexpected-transactiontype-values-and-instead-continues-rendering-with-safe-fallbacks",
+      "title": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
     }
   ],
-  "projectName": "APJ ENTERPRISES",
+  "new_feature_requests": [],
+  "projectName": "Fix blank screen when clicking the Monthly tab",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

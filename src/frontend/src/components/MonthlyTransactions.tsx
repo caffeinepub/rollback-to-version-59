@@ -30,11 +30,11 @@ import type { DerivedTransactionRow, DisplayTransaction } from '../utils/derived
 import { getAmountColorFromType, getDerivedRowAmountColor } from '../utils/transactionDirection';
 
 // Extended type for the selector (backend types + derived types)
-type MonthlyTransactionTypeSelector = TransactionType | 'cheetiDeduction' | 'savings10Percent';
+type MonthlyTransactionTypeSelector = TransactionType | 'cheetiDeduction' | 'savings10Percent' | 'all';
 
 export default function MonthlyTransactions() {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [selectedType, setSelectedType] = useState<MonthlyTransactionTypeSelector | ''>('');
+  const [selectedType, setSelectedType] = useState<MonthlyTransactionTypeSelector>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isTypeSelectOpen, setIsTypeSelectOpen] = useState(false);
@@ -89,7 +89,7 @@ export default function MonthlyTransactions() {
 
     // Apply type filter
     let typeFiltered = allRows;
-    if (selectedType) {
+    if (selectedType && selectedType !== 'all') {
       if (selectedType === 'cheetiDeduction') {
         typeFiltered = allRows.filter(
           (row) => isDerivedRow(row) && row.derivedType === 'Cheeti Deduction'
@@ -105,14 +105,18 @@ export default function MonthlyTransactions() {
       }
     }
 
-    // Apply search filter
+    // Apply search filter with safe string handling
     const searchFiltered = typeFiltered.filter((row) => {
       if (!searchQuery.trim()) return true;
       
+      const query = searchQuery.toLowerCase();
+      
       if (isRealTransaction(row)) {
-        return row.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const description = (row.description ?? '').toLowerCase();
+        return description.includes(query);
       } else if (isDerivedRow(row)) {
-        return row.derivedType.toLowerCase().includes(searchQuery.toLowerCase());
+        const derivedType = (row.derivedType ?? '').toLowerCase();
+        return derivedType.includes(query);
       }
       return false;
     });
@@ -129,13 +133,13 @@ export default function MonthlyTransactions() {
 
   const handleGeneratePDF = () => {
     const monthName = format(selectedMonth, 'MMMM yyyy');
-    const typeLabel = selectedType
-      ? selectedType === 'cheetiDeduction'
-        ? 'Cheeti Deduction'
-        : selectedType === 'savings10Percent'
-        ? '10% Savings'
-        : getTransactionTypeLabel(selectedType as TransactionType)
-      : 'All Types';
+    const typeLabel = selectedType === 'all'
+      ? 'All Types'
+      : selectedType === 'cheetiDeduction'
+      ? 'Cheeti Deduction'
+      : selectedType === 'savings10Percent'
+      ? '10% Savings'
+      : getTransactionTypeLabel(selectedType as TransactionType);
 
     let htmlContent = `
       <!DOCTYPE html>
@@ -267,7 +271,7 @@ export default function MonthlyTransactions() {
         htmlContent += `
           <tr class="derived-row">
             <td>${dateStr}</td>
-            <td>${row.derivedType}</td>
+            <td>${row.derivedType ?? 'Deduction'}</td>
             <td><em>Auto-calculated deduction</em></td>
             <td style="text-align: right;" class="amount-outgoing">${amountStr}</td>
           </tr>
@@ -450,7 +454,7 @@ export default function MonthlyTransactions() {
             <Select
               value={selectedType}
               onValueChange={(value) => {
-                setSelectedType(value as MonthlyTransactionTypeSelector | '');
+                setSelectedType(value as MonthlyTransactionTypeSelector);
                 setIsTypeSelectOpen(false);
               }}
               open={isTypeSelectOpen}
@@ -463,7 +467,7 @@ export default function MonthlyTransactions() {
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent className="bg-white border-2 border-gray-300 shadow-xl">
-                <SelectItem value="" className="font-semibold text-black hover:bg-gray-100">
+                <SelectItem value="all" className="font-semibold text-black hover:bg-gray-100">
                   All Types
                 </SelectItem>
                 <SelectItem value={TransactionType.cashIn} className="font-semibold text-black hover:bg-gray-100">
@@ -484,11 +488,11 @@ export default function MonthlyTransactions() {
                 <SelectItem value={TransactionType.deductionsOut} className="font-semibold text-black hover:bg-gray-100">
                   Deductions Out
                 </SelectItem>
-                <SelectItem value="cheetiDeduction" className="font-semibold text-black hover:bg-gray-100">
-                  Cheeti Deduction
-                </SelectItem>
                 <SelectItem value="savings10Percent" className="font-semibold text-black hover:bg-gray-100">
-                  Savings (10%)
+                  10% Savings (Derived)
+                </SelectItem>
+                <SelectItem value="cheetiDeduction" className="font-semibold text-black hover:bg-gray-100">
+                  Cheeti Deduction (Derived)
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -512,25 +516,28 @@ export default function MonthlyTransactions() {
           </div>
         </div>
 
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-700 font-semibold">
-            Showing {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            <span className="font-bold text-gray-900">
+              {filteredTransactions.length}
+            </span>{' '}
+            transaction{filteredTransactions.length !== 1 ? 's' : ''} found
           </div>
           <Button
             onClick={handleGeneratePDF}
             disabled={filteredTransactions.length === 0}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-lg shadow-md transition-all duration-200 disabled:opacity-50"
+            className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold shadow-md"
           >
             <FileDown className="mr-2 h-4 w-4" />
-            Generate Report
+            Download Report
           </Button>
         </div>
 
-        <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-md">
+        <div className="border-2 border-gray-300 rounded-lg overflow-hidden shadow-md">
           <div className="max-h-[500px] overflow-y-auto">
             <Table>
-              <TableHeader className="sticky top-0 z-10">
-                <TableRow className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-500 hover:to-indigo-500">
+              <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-purple-500 to-indigo-500">
+                <TableRow className="hover:bg-transparent">
                   <TableHead className="text-white font-bold">Date</TableHead>
                   <TableHead className="text-white font-bold">Type</TableHead>
                   <TableHead className="text-white font-bold">Description</TableHead>
@@ -540,50 +547,43 @@ export default function MonthlyTransactions() {
               <TableBody>
                 {filteredTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-gray-700 font-semibold">
-                      No transactions found for the selected criteria
+                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                      No transactions found for the selected filters
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredTransactions.map((row, index) => {
-                    const rowKey = isDerivedRow(row)
-                      ? `derived-${row.derivedType}-${row.date.toString()}`
-                      : `txn-${(row as Transaction).id.toString()}`;
-
+                    const dateStr = format(new Date(Number(row.date) / 1_000_000), 'dd/MM/yyyy');
+                    
                     if (isDerivedRow(row)) {
                       return (
-                        <TableRow key={rowKey} className="bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100">
-                          <TableCell className="font-semibold text-gray-900">
-                            {format(new Date(Number(row.date) / 1_000_000), 'dd/MM/yyyy')}
+                        <TableRow key={`derived-${index}`} className="bg-yellow-50 hover:bg-yellow-100">
+                          <TableCell className="font-medium text-gray-900">{dateStr}</TableCell>
+                          <TableCell className="font-semibold text-gray-900 italic">
+                            {row.derivedType ?? 'Deduction'}
                           </TableCell>
-                          <TableCell className="font-bold text-amber-700">{row.derivedType}</TableCell>
-                          <TableCell className="italic text-gray-700 font-medium">Auto-calculated deduction</TableCell>
-                          <TableCell className={`text-right font-bold ${getDerivedRowAmountColor()}`}>
+                          <TableCell className="text-gray-600 italic">Auto-calculated deduction</TableCell>
+                          <TableCell className="text-right font-bold text-red-600">
+                            {formatAmount(row.amount)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    } else if (isRealTransaction(row)) {
+                      const typeLabel = getTransactionTypeLabel(row.transactionType);
+                      const amountColor = getAmountColorFromType(row.transactionType);
+                      
+                      return (
+                        <TableRow key={`real-${row.id}`} className="hover:bg-gray-50">
+                          <TableCell className="font-medium text-gray-900">{dateStr}</TableCell>
+                          <TableCell className="font-semibold text-gray-900">{typeLabel}</TableCell>
+                          <TableCell className="text-gray-700">{row.description || '-'}</TableCell>
+                          <TableCell className={`text-right font-bold ${amountColor}`}>
                             {formatAmount(row.amount)}
                           </TableCell>
                         </TableRow>
                       );
                     }
-
-                    const transaction = row as Transaction;
-                    const amountColorClass = getAmountColorFromType(transaction.transactionType);
-
-                    return (
-                      <TableRow key={rowKey} className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50">
-                        <TableCell className="font-semibold text-gray-900">
-                          {format(new Date(Number(transaction.date) / 1_000_000), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell className="font-semibold text-gray-900">
-                          {getTransactionTypeLabel(transaction.transactionType)}
-                        </TableCell>
-                        <TableCell className="font-medium text-gray-700">
-                          {transaction.description || '-'}
-                        </TableCell>
-                        <TableCell className={`text-right font-bold ${amountColorClass}`}>
-                          {formatAmount(transaction.amount)}
-                        </TableCell>
-                      </TableRow>
-                    );
+                    return null;
                   })
                 )}
               </TableBody>
@@ -591,12 +591,14 @@ export default function MonthlyTransactions() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl p-4 shadow-md">
-          <div className="flex justify-between items-center text-white">
-            <span className="font-bold text-lg">Total Amount:</span>
-            <span className="font-black text-2xl">{formatAmount(BigInt(totalAmount))}</span>
+        {filteredTransactions.length > 0 && (
+          <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-lg p-4 text-white">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-lg">Total Amount:</span>
+              <span className="font-bold text-2xl">{formatAmount(BigInt(totalAmount))}</span>
+            </div>
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
