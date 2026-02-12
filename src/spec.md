@@ -1,11 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Enhance the Monthly Transactions tab to support viewing derived “Cheeti Deduction” and “Savings (10%)” rows and enable description-based partial search.
+**Goal:** Color all transaction amount text consistently by transaction direction (outgoing = red, incoming = green) across every tab and transaction view, using `transactionType` rather than numeric sign.
 
 **Planned changes:**
-- Add two new selectable options to the Monthly tab “Transaction Type” dropdown: “Cheeti Deduction” and “Savings (10%)”, alongside existing transaction types.
-- When either new option is selected, populate the monthly table with the corresponding derived rows for the selected month using existing localStorage-derived sources (no backend changes; no persistence of these rows as transactions), and compute totals from only the displayed derived rows.
-- Add a Description search input to the Monthly tab that filters the currently displayed results via case-insensitive substring matching as the user types, safely handling rows with missing descriptions.
+- Update amount rendering in Transaction History to apply red/green styling based on outgoing (cashOut, upiOut, savingsOut, deductionsOut) vs incoming (cashIn, upiIn) transaction types.
+- Update Monthly Transactions on-screen table amount styling to use the same outgoing/incoming rule, and apply the same colors in the generated HTML report.
+- Update Day-wise Transactions amount styling for all rendered rows so outgoing is red and incoming is green, treating derived deduction/savings rows as outgoing (red), including the generated day-wise HTML report (rows and summary lines).
+- Update Filter Transactions amount styling in filtered results to use the same outgoing/incoming rule, treating derived deduction/savings rows as outgoing (red).
+- Remove/avoid any amount-coloring logic that uses `Number(amount) >= 0` as the primary determinant, relying on transaction type / derived-row kind instead.
 
-**User-visible outcome:** In the Monthly tab, users can select “Cheeti Deduction” or “Savings (10%)” to see month-specific derived rows and accurate totals, and can instantly filter the current monthly results by typing part of a transaction description.
+**User-visible outcome:** In every transaction list/table and generated report, outgoing amounts appear in red and incoming amounts appear in green, consistently across all tabs and views.

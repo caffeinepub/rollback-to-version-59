@@ -1,62 +1,34 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState, useMemo } from 'react';
+import { useGetAllTransactions } from '../hooks/useQueries';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, Filter as FilterIcon, TrendingUp, TrendingDown } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon, Filter, Calendar as CalendarIconLucide } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Transaction } from '../backend';
-import { useQueryClient } from '@tanstack/react-query';
-import { getDerivedRowsForDateRange, type DisplayTransaction, isDerivedRow, isRealTransaction } from '../utils/derivedTransactions';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { normalizeDateToStartOfDay, getDerivedRowsForDateRange, isDerivedRow } from '../utils/derivedTransactions';
+import type { DerivedTransactionRow } from '../utils/derivedTransactions';
+import { getDerivedRowAmountColor } from '../utils/transactionDirection';
+import { TransactionType } from '../backend';
 
-interface FilteredTransaction extends Transaction {
-  dateDisplay: string;
-}
-
-interface FilterStats {
-  cashIn: bigint;
-  cashOut: bigint;
-  upiIn: bigint;
-  upiOut: bigint;
-  totalInflow: bigint;
-  totalOutflow: bigint;
-  totalTransaction: bigint;
-  tenPercentDeduction: bigint;
-  userAmountDeduction: bigint;
-  netAmount: bigint;
-}
-
-// Local storage keys
-const LOCAL_TRANSACTIONS_KEY = 'apj_transactions';
 const LOCAL_USER_DEDUCTIONS_KEY = 'apj_user_deductions';
-
-function getLocalTransactions(): Transaction[] {
-  try {
-    const stored = localStorage.getItem(LOCAL_TRANSACTIONS_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    // Ensure bigint fields are properly converted
-    return parsed.map((t: any) => ({
-      ...t,
-      id: typeof t.id === 'string' ? BigInt(t.id) : BigInt(t.id),
-      amount: typeof t.amount === 'string' ? BigInt(t.amount) : BigInt(t.amount),
-      date: typeof t.date === 'string' ? BigInt(t.date) : BigInt(t.date),
-    }));
-  } catch (error) {
-    console.error('Failed to load local transactions:', error);
-    return [];
-  }
-}
 
 function getLocalUserDeductions(): Record<string, bigint> {
   try {
     const stored = localStorage.getItem(LOCAL_USER_DEDUCTIONS_KEY);
     if (!stored) return {};
     const parsed = JSON.parse(stored);
-    // Convert string values back to bigint
     const result: Record<string, bigint> = {};
     for (const [key, value] of Object.entries(parsed)) {
       result[key] = BigInt(value as string);
@@ -69,33 +41,14 @@ function getLocalUserDeductions(): Record<string, bigint> {
 }
 
 export default function FilterTransactions() {
-  const queryClient = useQueryClient();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [isStartCalendarOpen, setIsStartCalendarOpen] = useState(false);
   const [isEndCalendarOpen, setIsEndCalendarOpen] = useState(false);
-  const [filteredData, setFilteredData] = useState<DisplayTransaction[]>([]);
-  const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
-  const [hasFiltered, setHasFiltered] = useState(false);
 
-  // Listen for transaction updates from React Query cache
-  useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      // Check if transactions query was updated
-      if (event?.query?.queryKey?.[0] === 'transactions') {
-        // If we have already filtered and dates are set, re-apply the filter
-        if (hasFiltered && startDate && endDate) {
-          applyFilter(startDate, endDate);
-        }
-      }
-    });
+  const { data: transactions, isLoading, error } = useGetAllTransactions();
 
-    return () => {
-      unsubscribe();
-    };
-  }, [hasFiltered, startDate, endDate, queryClient]);
-
-  const formatAmount = (amount: bigint | number) => {
+  const formatAmount = (amount: bigint) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -103,471 +56,339 @@ export default function FilterTransactions() {
     }).format(Number(amount));
   };
 
-  const getTransactionTypeLabel = (type: string) => {
-    switch (type) {
-      case 'cashIn':
-        return 'Cash In';
-      case 'cashOut':
-        return 'Cash Out';
-      case 'upiIn':
-        return 'UPI In';
-      case 'upiOut':
-        return 'UPI Out';
-      default:
-        return type;
-    }
-  };
+  // Filter transactions and calculate stats
+  const filterData = useMemo(() => {
+    if (!transactions || !startDate || !endDate) return null;
 
-  const getTransactionTypeBadgeClass = (type: string) => {
-    switch (type) {
-      case 'cashIn':
-        return 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-600 hover:to-green-600 shadow-lg';
-      case 'cashOut':
-        return 'bg-gradient-to-r from-rose-500 to-red-500 text-white hover:from-rose-600 hover:to-red-600 shadow-lg';
-      case 'upiIn':
-        return 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-lg';
-      case 'upiOut':
-        return 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-lg';
-      default:
-        return 'bg-gray-500 text-white shadow-lg';
-    }
-  };
-
-  const applyFilter = (start: Date, end: Date) => {
-    // Always get fresh data from local storage
-    const transactions = getLocalTransactions();
-    const userDeductions = getLocalUserDeductions();
-
-    console.log('Filter: Total transactions in storage:', transactions.length);
-
-    // Normalize dates to start and end of day in local timezone
-    const startOfDay = new Date(start);
+    const startOfDay = new Date(startDate);
     startOfDay.setHours(0, 0, 0, 0);
-    
-    const endOfDay = new Date(end);
+    const endOfDay = new Date(endDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Convert to milliseconds for comparison
     const startTimestamp = startOfDay.getTime();
     const endTimestamp = endOfDay.getTime();
 
-    console.log('Filter range:', {
-      start: startOfDay.toISOString(),
-      end: endOfDay.toISOString(),
-      startMs: startTimestamp,
-      endMs: endTimestamp,
+    // Group transactions by date
+    const transactionsByDate = new Map<string, { cashIn: bigint; upiIn: bigint; totalTransaction: bigint }>();
+
+    transactions.forEach((txn) => {
+      const txnDateMs = Number(txn.date) / 1_000_000;
+      if (txnDateMs >= startTimestamp && txnDateMs <= endTimestamp) {
+        const txnDate = new Date(txnDateMs);
+        txnDate.setHours(0, 0, 0, 0);
+        const dateKey = BigInt(txnDate.getTime() * 1_000_000).toString();
+
+        if (!transactionsByDate.has(dateKey)) {
+          transactionsByDate.set(dateKey, { cashIn: 0n, upiIn: 0n, totalTransaction: 0n });
+        }
+
+        const stats = transactionsByDate.get(dateKey)!;
+        if (txn.transactionType === TransactionType.cashIn) {
+          stats.cashIn += txn.amount;
+          stats.totalTransaction += txn.amount;
+        } else if (txn.transactionType === TransactionType.upiIn) {
+          stats.upiIn += txn.amount;
+          stats.totalTransaction += txn.amount;
+        }
+      }
     });
 
-    // Initialize stats
-    let totalCashIn = 0n;
-    let totalCashOut = 0n;
-    let totalUpiIn = 0n;
-    let totalUpiOut = 0n;
-    const dateDeductions = new Map<string, bigint>();
+    // Get user deductions
+    const userDeductions = getLocalUserDeductions();
 
-    // Filter transactions within the date range
-    const filtered: FilteredTransaction[] = transactions
-      .filter((transaction) => {
-        // Convert nanoseconds to milliseconds
-        const txnDateMs = Number(transaction.date) / 1_000_000;
-        
-        // Create a date object and normalize to start of day for comparison
-        const txnDate = new Date(txnDateMs);
-        const txnDateNormalized = new Date(txnDate);
-        txnDateNormalized.setHours(0, 0, 0, 0);
-        const txnTimestamp = txnDateNormalized.getTime();
-        
-        // Check if transaction date falls within the range (inclusive)
-        const isInRange = txnTimestamp >= startTimestamp && txnTimestamp <= endTimestamp;
-        
-        if (isInRange) {
-          console.log('Transaction in range:', {
-            id: transaction.id.toString(),
-            date: txnDate.toISOString(),
-            type: transaction.transactionType,
-            amount: transaction.amount.toString(),
-          });
-        }
-        
-        return isInRange;
-      })
-      .map((transaction) => {
-        // Convert nanoseconds to milliseconds for display
-        const txnDateMs = Number(transaction.date) / 1_000_000;
-        const txnDate = new Date(txnDateMs);
-        
-        // Accumulate all transaction types for comprehensive stats
-        if (transaction.transactionType === 'cashIn') {
-          totalCashIn += transaction.amount;
-        } else if (transaction.transactionType === 'cashOut') {
-          totalCashOut += transaction.amount;
-        } else if (transaction.transactionType === 'upiIn') {
-          totalUpiIn += transaction.amount;
-        } else if (transaction.transactionType === 'upiOut') {
-          totalUpiOut += transaction.amount;
-        }
-
-        // Track user deductions by date (normalize to start of day)
-        const txnDateNormalized = new Date(txnDate);
-        txnDateNormalized.setHours(0, 0, 0, 0);
-        const dateKey = BigInt(txnDateNormalized.getTime() * 1_000_000).toString();
-        
-        if (!dateDeductions.has(dateKey)) {
-          const deduction = userDeductions[dateKey] || 0n;
-          dateDeductions.set(dateKey, deduction);
-        }
-
-        return {
-          ...transaction,
-          dateDisplay: format(txnDate, 'PPP'),
-        };
-      })
-      .sort((a, b) => {
-        // Sort by date descending (most recent first)
-        return Number(b.date) - Number(a.date);
-      });
-
-    console.log('Filtered transactions:', filtered.length);
-    console.log('Stats:', {
-      cashIn: totalCashIn.toString(),
-      cashOut: totalCashOut.toString(),
-      upiIn: totalUpiIn.toString(),
-      upiOut: totalUpiOut.toString(),
-    });
-
-    // Calculate total inflows and outflows
-    const totalInflow = totalCashIn + totalUpiIn;
-    const totalOutflow = totalCashOut + totalUpiOut;
-    
-    // Total transaction is inflows only (for 10% calculation)
-    const totalTransaction = totalInflow;
-
-    // Calculate 10% deduction rounded to nearest 10
-    let tenPercentDeduction = 0n;
-    if (totalTransaction > 0n) {
+    // Convert to array with calculated deductions
+    const result = Array.from(transactionsByDate.entries()).map(([dateKey, stats]) => {
+      const totalTransaction = stats.totalTransaction;
       const tenPercent = (totalTransaction * 10n) / 100n;
       const remainder = tenPercent % 10n;
-      if (remainder >= 5n) {
-        tenPercentDeduction = tenPercent + (10n - remainder);
-      } else {
-        tenPercentDeduction = tenPercent - remainder;
-      }
-    }
+      const tenPercentDeduction = remainder >= 5n ? tenPercent + (10n - remainder) : tenPercent - remainder;
+      const userAmountDeduction = userDeductions[dateKey] || 0n;
 
-    // Sum all user deductions for the date range
-    let totalUserDeductions = 0n;
-    for (const deduction of dateDeductions.values()) {
-      totalUserDeductions += deduction;
-    }
-
-    // Calculate net amount: Total Inflow - Total Outflow - 10% Deduction - User Deductions
-    const netAmount = totalInflow - totalOutflow - tenPercentDeduction - totalUserDeductions;
-
-    // Set stats
-    setFilterStats({
-      cashIn: totalCashIn,
-      cashOut: totalCashOut,
-      upiIn: totalUpiIn,
-      upiOut: totalUpiOut,
-      totalInflow,
-      totalOutflow,
-      totalTransaction,
-      tenPercentDeduction,
-      userAmountDeduction: totalUserDeductions,
-      netAmount,
+      return {
+        date: BigInt(dateKey),
+        cashIn: stats.cashIn,
+        upiIn: stats.upiIn,
+        totalTransaction,
+        tenPercentDeduction,
+        userAmountDeduction,
+      };
     });
 
-    // Get derived rows for the date range
-    const derivedRows = getDerivedRowsForDateRange(start, end);
-    
-    // Merge filtered transactions with derived rows
-    const allDisplayRows: DisplayTransaction[] = [...filtered, ...derivedRows].sort((a, b) => {
-      return Number(b.date) - Number(a.date);
+    return result.sort((a, b) => Number(b.date) - Number(a.date));
+  }, [transactions, startDate, endDate]);
+
+  // Merge filter data with derived rows
+  const mergedData = useMemo(() => {
+    if (!filterData || !startDate || !endDate) return [];
+
+    const derivedRows = getDerivedRowsForDateRange(startDate, endDate);
+
+    // Create a combined array with both filter data and derived rows
+    type MergedRow =
+      | { type: 'filter'; data: (typeof filterData)[0] }
+      | { type: 'derived'; data: DerivedTransactionRow };
+
+    const combined: MergedRow[] = [
+      ...filterData.map((item) => ({ type: 'filter' as const, data: item })),
+      ...derivedRows.map((item) => ({ type: 'derived' as const, data: item })),
+    ];
+
+    // Sort by date descending
+    combined.sort((a, b) => {
+      const dateA = a.type === 'filter' ? a.data.date : a.data.date;
+      const dateB = b.type === 'filter' ? b.data.date : b.data.date;
+      return Number(dateB) - Number(dateA);
     });
 
-    setFilteredData(allDisplayRows);
-    setHasFiltered(true);
-  };
+    return combined;
+  }, [filterData, startDate, endDate]);
 
-  const handleFilter = () => {
-    if (!startDate || !endDate) {
-      return;
-    }
+  const totalStats = useMemo(() => {
+    if (!filterData) return { totalCashIn: 0n, totalUpiIn: 0n, totalTransactions: 0n, totalDeductions: 0n };
 
-    applyFilter(startDate, endDate);
-  };
+    return filterData.reduce(
+      (acc, item) => ({
+        totalCashIn: acc.totalCashIn + item.cashIn,
+        totalUpiIn: acc.totalUpiIn + item.upiIn,
+        totalTransactions: acc.totalTransactions + item.totalTransaction,
+        totalDeductions: acc.totalDeductions + item.tenPercentDeduction + item.userAmountDeduction,
+      }),
+      { totalCashIn: 0n, totalUpiIn: 0n, totalTransactions: 0n, totalDeductions: 0n }
+    );
+  }, [filterData]);
 
-  const handleStartDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setStartDate(date);
-      setIsStartCalendarOpen(false);
-    }
-  };
+  const shouldFetch = startDate !== undefined && endDate !== undefined;
 
-  const handleEndDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setEndDate(date);
-      setIsEndCalendarOpen(false);
-    }
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-xl border-2 border-gray-200">
-      <div className="mb-6">
-        <h2 className="text-4xl font-black bg-gradient-to-r from-teal-600 via-blue-600 to-amber-500 bg-clip-text text-transparent">
-          Filter Transactions
-        </h2>
-        <p className="text-gray-600 mt-2 text-base font-medium">
-          Analyze your transactions by date range with detailed insights
-        </p>
-      </div>
-
-      {/* Date Range Filter */}
-      <Card className="mb-6 bg-gradient-to-br from-blue-50 via-teal-50 to-amber-50 border-2 border-blue-300 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-xl font-black text-gray-800 flex items-center gap-2">
-            <FilterIcon className="h-6 w-6 text-blue-600" />
-            Date Range Filter
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {/* Start Date */}
-            <div>
-              <Label htmlFor="start-date" className="text-base font-bold text-gray-700 mb-2 block">
-                Start Date
-              </Label>
-              <Popover open={isStartCalendarOpen} onOpenChange={setIsStartCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-bold text-lg h-14 px-4 rounded-xl border-2 hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 bg-white border-gray-300 shadow-md text-black hover:text-black"
-                  >
-                    <CalendarIcon className="mr-2 h-5 w-5 text-blue-600" />
-                    {startDate ? format(startDate, 'PPP') : <span className="text-gray-500">Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-white border-2 border-blue-300 shadow-2xl rounded-2xl" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={handleStartDateSelect}
-                    initialFocus
-                    className="modern-calendar"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* End Date */}
-            <div>
-              <Label htmlFor="end-date" className="text-base font-bold text-gray-700 mb-2 block">
-                End Date
-              </Label>
-              <Popover open={isEndCalendarOpen} onOpenChange={setIsEndCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-bold text-lg h-14 px-4 rounded-xl border-2 hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 bg-white border-gray-300 shadow-md text-black hover:text-black"
-                  >
-                    <CalendarIcon className="mr-2 h-5 w-5 text-blue-600" />
-                    {endDate ? format(endDate, 'PPP') : <span className="text-gray-500">Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-white border-2 border-blue-300 shadow-2xl rounded-2xl" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={handleEndDateSelect}
-                    initialFocus
-                    className="modern-calendar"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+  if (isLoading && shouldFetch) {
+    return (
+      <Card className="bg-white border border-gray-200 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-white" />
+            <CardTitle className="text-white font-bold">Filter Transactions</CardTitle>
           </div>
-
-          <Button
-            onClick={handleFilter}
-            disabled={!startDate || !endDate}
-            className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-black shadow-xl transition-all duration-300 hover:shadow-2xl h-14 text-lg rounded-xl"
-          >
-            <FilterIcon className="mr-2 h-5 w-5" />
-            Apply Filter
-          </Button>
+          <CardDescription className="text-white font-semibold">
+            Filter transactions by date range
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full bg-gray-200" />
+            <Skeleton className="h-10 w-full bg-gray-200" />
+            <Skeleton className="h-64 w-full bg-gray-200" />
+          </div>
         </CardContent>
       </Card>
+    );
+  }
 
-      {/* Summary Stats */}
-      {hasFiltered && filterStats && (
-        <Card className="mb-6 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 border-2 border-indigo-300 shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-2xl font-black text-gray-800 flex items-center gap-2">
-              <TrendingUp className="h-6 w-6 text-indigo-600" />
-              Summary Statistics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-gradient-to-br from-emerald-500 to-green-600 p-5 rounded-2xl shadow-xl border-2 border-emerald-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1 flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
-                  Cash In
-                </p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.cashIn)}</p>
+  if (error && shouldFetch) {
+    return (
+      <Card className="bg-white border border-gray-200 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-white" />
+            <CardTitle className="text-white font-bold">Filter Transactions</CardTitle>
+          </div>
+          <CardDescription className="text-white font-semibold">
+            Filter transactions by date range
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
+            <AlertDescription className="text-red-800">
+              Failed to load filtered transactions. Please try again.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-white border border-gray-200 shadow-xl">
+      <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          <Filter className="h-5 w-5 text-white" />
+          <CardTitle className="text-white font-bold">Filter Transactions</CardTitle>
+        </div>
+        <CardDescription className="text-white font-semibold">
+          Filter transactions by date range
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="start-date" className="text-gray-900 font-bold">
+              Start Date
+            </Label>
+            <Popover open={isStartCalendarOpen} onOpenChange={setIsStartCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="start-date"
+                  variant="outline"
+                  className="w-full justify-start text-left font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
+                  {startDate ? format(startDate, 'PPP') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={(date) => {
+                    setStartDate(date);
+                    setIsStartCalendarOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="end-date" className="text-gray-900 font-bold">
+              End Date
+            </Label>
+            <Popover open={isEndCalendarOpen} onOpenChange={setIsEndCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="end-date"
+                  variant="outline"
+                  className="w-full justify-start text-left font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
+                  {endDate ? format(endDate, 'PPP') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={(date) => {
+                    setEndDate(date);
+                    setIsEndCalendarOpen(false);
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+
+        {shouldFetch && mergedData.length > 0 && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 shadow-md">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Total Cash In</h3>
+                <p className="text-xl font-black text-green-600">{formatAmount(totalStats.totalCashIn)}</p>
               </div>
-              <div className="bg-gradient-to-br from-rose-500 to-red-600 p-5 rounded-2xl shadow-xl border-2 border-rose-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1 flex items-center gap-1">
-                  <TrendingDown className="h-4 w-4" />
-                  Cash Out
-                </p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.cashOut)}</p>
+              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-300 rounded-xl p-4 shadow-md">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Total UPI In</h3>
+                <p className="text-xl font-black text-green-600">{formatAmount(totalStats.totalUpiIn)}</p>
               </div>
-              <div className="bg-gradient-to-br from-teal-500 to-cyan-600 p-5 rounded-2xl shadow-xl border-2 border-teal-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1 flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
-                  UPI In
-                </p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.upiIn)}</p>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4 shadow-md">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Total Transactions</h3>
+                <p className="text-xl font-black text-green-600">{formatAmount(totalStats.totalTransactions)}</p>
               </div>
-              <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-5 rounded-2xl shadow-xl border-2 border-orange-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1 flex items-center gap-1">
-                  <TrendingDown className="h-4 w-4" />
-                  UPI Out
-                </p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.upiOut)}</p>
+              <div className="bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-300 rounded-xl p-4 shadow-md">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Total Deductions</h3>
+                <p className="text-xl font-black text-red-600">{formatAmount(totalStats.totalDeductions)}</p>
               </div>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-5 rounded-2xl shadow-xl border-2 border-blue-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1">Total Inflow</p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.totalInflow)}</p>
-              </div>
-              <div className="bg-gradient-to-br from-red-500 to-pink-600 p-5 rounded-2xl shadow-xl border-2 border-red-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1">Total Outflow</p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.totalOutflow)}</p>
-              </div>
-              <div className="bg-gradient-to-br from-purple-500 to-violet-600 p-5 rounded-2xl shadow-xl border-2 border-purple-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1">Deduction 10%</p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.tenPercentDeduction)}</p>
-              </div>
-              <div className="bg-gradient-to-br from-amber-500 to-yellow-600 p-5 rounded-2xl shadow-xl border-2 border-amber-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1">User Deduction</p>
-                <p className="text-2xl font-black text-white">{formatAmount(filterStats.userAmountDeduction)}</p>
-              </div>
-              <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-5 rounded-2xl shadow-xl border-2 border-cyan-300 transform hover:scale-105 transition-transform duration-200">
-                <p className="text-sm font-bold text-white/90 mb-1">Net Amount</p>
-                <p className={`text-2xl font-black ${filterStats.netAmount >= 0n ? 'text-white' : 'text-red-200'}`}>
-                  {formatAmount(filterStats.netAmount)}
-                </p>
+
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-md">
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10">
+                    <TableRow className="bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-500 hover:to-blue-500">
+                      <TableHead className="text-white font-bold">Date</TableHead>
+                      <TableHead className="text-white font-bold">Type</TableHead>
+                      <TableHead className="text-right text-white font-bold">Cash In</TableHead>
+                      <TableHead className="text-right text-white font-bold">UPI In</TableHead>
+                      <TableHead className="text-right text-white font-bold">Total</TableHead>
+                      <TableHead className="text-right text-white font-bold">10% Deduction</TableHead>
+                      <TableHead className="text-right text-white font-bold">User Deduction</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mergedData.map((row, index) => {
+                      if (row.type === 'derived') {
+                        const derivedRow = row.data;
+                        const rowKey = `derived-${derivedRow.derivedType}-${derivedRow.date.toString()}`;
+                        return (
+                          <TableRow key={rowKey} className="bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100">
+                            <TableCell className="font-semibold text-gray-900">
+                              {format(new Date(Number(derivedRow.date) / 1_000_000), 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell className="font-bold text-amber-700">{derivedRow.derivedType}</TableCell>
+                            <TableCell className="text-right">-</TableCell>
+                            <TableCell className="text-right">-</TableCell>
+                            <TableCell className="text-right">-</TableCell>
+                            <TableCell className={`text-right font-bold ${getDerivedRowAmountColor()}`}>
+                              {derivedRow.derivedType === '10% Savings' ? formatAmount(derivedRow.amount) : '-'}
+                            </TableCell>
+                            <TableCell className={`text-right font-bold ${getDerivedRowAmountColor()}`}>
+                              {derivedRow.derivedType === 'Cheeti Deduction' ? formatAmount(derivedRow.amount) : '-'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      } else {
+                        const filterRow = row.data;
+                        const rowKey = `filter-${filterRow.date.toString()}`;
+                        return (
+                          <TableRow key={rowKey} className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50">
+                            <TableCell className="font-semibold text-gray-900">
+                              {format(new Date(Number(filterRow.date) / 1_000_000), 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell className="font-semibold text-gray-900">Daily Summary</TableCell>
+                            <TableCell className="text-right font-bold text-green-600">
+                              {formatAmount(filterRow.cashIn)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-green-600">
+                              {formatAmount(filterRow.upiIn)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-green-600">
+                              {formatAmount(filterRow.totalTransaction)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-red-600">
+                              {formatAmount(filterRow.tenPercentDeduction)}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-red-600">
+                              {formatAmount(filterRow.userAmountDeduction)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </>
+        )}
 
-      {/* Results Table */}
-      {hasFiltered && filteredData.length > 0 && (
-        <Card className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-300 shadow-xl">
-          <CardHeader className="bg-gradient-to-r from-teal-500 via-blue-500 to-purple-500 text-white rounded-t-xl">
-            <CardTitle className="text-2xl font-black flex items-center gap-2">
-              <FilterIcon className="h-6 w-6" />
-              Filtered Results ({filteredData.length} {filteredData.length === 1 ? 'entry' : 'entries'})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-teal-100 via-blue-100 to-purple-100 hover:from-teal-200 hover:via-blue-200 hover:to-purple-200 border-b-2 border-gray-300">
-                    <TableHead className="font-black text-gray-900 text-lg py-4">Date</TableHead>
-                    <TableHead className="font-black text-gray-900 text-lg py-4">Type</TableHead>
-                    <TableHead className="font-black text-gray-900 text-lg py-4 text-right">Amount</TableHead>
-                    <TableHead className="font-black text-gray-900 text-lg py-4">Description</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredData.map((row, index) => {
-                    const rowKey = isDerivedRow(row)
-                      ? `derived-${row.derivedType}-${row.date.toString()}`
-                      : `txn-${(row as Transaction).id.toString()}`;
+        {shouldFetch && mergedData.length === 0 && (
+          <div className="text-center py-12 text-gray-700">
+            <CalendarIconLucide className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="font-bold text-gray-900">No transactions found</p>
+            <p className="mt-2 text-sm font-medium text-gray-600">
+              Try selecting a different date range
+            </p>
+          </div>
+        )}
 
-                    // Render derived row
-                    if (isDerivedRow(row)) {
-                      return (
-                        <TableRow
-                          key={rowKey}
-                          className={`bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100 transition-all duration-200 border-b border-gray-200`}
-                        >
-                          <TableCell className="font-bold text-gray-900 text-base py-4">
-                            {format(new Date(Number(row.date) / 1_000_000), 'PPP')}
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <Badge className="bg-amber-100 text-amber-800 border-2 border-amber-300 font-black text-base px-4 py-2">
-                              {row.derivedType}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-black text-amber-700 text-lg py-4">
-                            {formatAmount(row.amount)}
-                          </TableCell>
-                          <TableCell className="text-gray-700 text-base font-medium italic py-4">
-                            Auto-calculated deduction
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }
-
-                    // Render real transaction
-                    const transaction = row as FilteredTransaction;
-                    return (
-                      <TableRow 
-                        key={rowKey}
-                        className={`hover:bg-gradient-to-r hover:from-blue-50 hover:via-teal-50 hover:to-purple-50 transition-all duration-200 border-b border-gray-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                        }`}
-                      >
-                        <TableCell className="font-bold text-gray-900 text-base py-4">
-                          {transaction.dateDisplay}
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <Badge className={`${getTransactionTypeBadgeClass(transaction.transactionType)} font-black text-base px-4 py-2`}>
-                            {getTransactionTypeLabel(transaction.transactionType)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-black text-gray-900 text-lg py-4">
-                          {formatAmount(transaction.amount)}
-                        </TableCell>
-                        <TableCell className="text-gray-700 text-base font-medium py-4">
-                          {transaction.description || '-'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {hasFiltered && filteredData.length === 0 && startDate && endDate && (
-        <Card className="bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-gray-400 shadow-xl">
-          <CardContent className="py-16 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
-                <FilterIcon className="h-10 w-10 text-gray-600" />
-              </div>
-              <p className="text-gray-700 text-2xl font-black">
-                No transactions found
-              </p>
-              <p className="text-gray-600 text-base font-semibold mt-2 max-w-md">
-                No transactions were found for the selected date range. Try selecting a different date range or add new transactions.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+        {!shouldFetch && (
+          <div className="text-center py-12 text-gray-700">
+            <Filter className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <p className="font-bold text-gray-900">Select a date range</p>
+            <p className="mt-2 text-sm font-medium text-gray-600">
+              Choose start and end dates to filter transactions
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

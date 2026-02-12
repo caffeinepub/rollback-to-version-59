@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { mergeWithDerivedRows, isRealTransaction, isDerivedRow, type DisplayTransaction } from '../utils/derivedTransactions';
+import { getTransactionDirection, getAmountColorFromType, getDerivedRowAmountColor, getIconBgColor, getIconColor } from '../utils/transactionDirection';
 
 export default function TransactionHistory() {
   const { data: transactions, isLoading, error } = useGetAllTransactions();
@@ -229,8 +230,8 @@ export default function TransactionHistory() {
                     >
                       <div className="flex items-start gap-3 flex-1">
                         <div className="mt-1">
-                          <div className="rounded-full bg-amber-100 p-2.5 shadow-md">
-                            <TrendingDown className="h-5 w-5 text-amber-600" />
+                          <div className="rounded-full bg-red-100 p-2.5 shadow-md">
+                            <TrendingDown className="h-5 w-5 text-red-600" />
                           </div>
                         </div>
                         <div className="flex-1">
@@ -248,7 +249,7 @@ export default function TransactionHistory() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="text-lg font-bold text-amber-700">
+                        <div className={`text-lg font-bold ${getDerivedRowAmountColor()}`}>
                           {formatAmount(row.amount)}
                         </div>
                       </div>
@@ -258,6 +259,11 @@ export default function TransactionHistory() {
 
                 // Render real transaction
                 const transaction = row as Transaction;
+                const direction = getTransactionDirection(transaction.transactionType);
+                const amountColorClass = getAmountColorFromType(transaction.transactionType);
+                const iconBgColor = getIconBgColor(direction);
+                const iconColor = getIconColor(direction);
+
                 return (
                   <div
                     key={rowKey}
@@ -265,15 +271,13 @@ export default function TransactionHistory() {
                   >
                     <div className="flex items-start gap-3 flex-1">
                       <div className="mt-1">
-                        {Number(transaction.amount) >= 0 ? (
-                          <div className="rounded-full bg-green-100 p-2.5 shadow-md">
-                            <ArrowUpCircle className="h-5 w-5 text-green-600" />
-                          </div>
-                        ) : (
-                          <div className="rounded-full bg-red-100 p-2.5 shadow-md">
-                            <ArrowDownCircle className="h-5 w-5 text-red-600" />
-                          </div>
-                        )}
+                        <div className={`rounded-full ${iconBgColor} p-2.5 shadow-md`}>
+                          {direction === 'incoming' ? (
+                            <ArrowUpCircle className={`h-5 w-5 ${iconColor}`} />
+                          ) : (
+                            <ArrowDownCircle className={`h-5 w-5 ${iconColor}`} />
+                          )}
+                        </div>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -290,11 +294,7 @@ export default function TransactionHistory() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`text-lg font-bold ${
-                          Number(transaction.amount) >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}
-                      >
+                      <div className={`text-lg font-bold ${amountColorClass}`}>
                         {formatAmount(transaction.amount)}
                       </div>
                       <Button

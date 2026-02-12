@@ -1,29 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useGetAllTransactions, useSetUserSpecifiedDeduction } from '../hooks/useQueries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { useGetAllTransactions } from '../hooks/useQueries';
+import { Transaction, TransactionType } from '../backend';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
+import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
-import {
-  CalendarIcon,
-  AlertCircle,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  TrendingUp,
-  Wallet,
-  FileDown,
-  Percent,
-  IndianRupee,
-  TrendingDown,
-} from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon, FileDown, Calendar as CalendarIconLucide } from 'lucide-react';
 import { format } from 'date-fns';
-import type { Transaction } from '../backend';
-import { getDerivedRowsForDate, type DisplayTransaction, isDerivedRow, isRealTransaction } from '../utils/derivedTransactions';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { normalizeDateToStartOfDay, getDerivedRowsForDate, isDerivedRow, isRealTransaction } from '../utils/derivedTransactions';
+import type { DisplayTransaction } from '../utils/derivedTransactions';
+import { getAmountColorFromType, getDerivedRowAmountColor } from '../utils/transactionDirection';
 
 const LOCAL_USER_DEDUCTIONS_KEY = 'apj_user_deductions';
 
@@ -43,27 +33,51 @@ function getLocalUserDeductions(): Record<string, bigint> {
   }
 }
 
+function saveLocalUserDeductions(deductions: Record<string, bigint>) {
+  try {
+    const serializable: Record<string, string> = {};
+    for (const [key, value] of Object.entries(deductions)) {
+      serializable[key] = value.toString();
+    }
+    localStorage.setItem(LOCAL_USER_DEDUCTIONS_KEY, JSON.stringify(serializable));
+  } catch (error) {
+    console.error('Failed to save local user deductions:', error);
+    throw error;
+  }
+}
+
 export default function DaywiseTransactions() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [dailyDeduction, setDailyDeduction] = useState<string>('350');
+  const [deductionInput, setDeductionInput] = useState('');
+  const [userDeduction, setUserDeduction] = useState<bigint>(0n);
 
-  const { data: allTransactions, isLoading, error } = useGetAllTransactions();
-  const setUserDeductionMutation = useSetUserSpecifiedDeduction();
+  const dateNs = normalizeDateToStartOfDay(selectedDate);
+  const { data: transactions, isLoading, error } = useGetAllTransactions();
 
-  // Load daily deduction for selected date
+  // Load user deduction for the selected date
   useEffect(() => {
-    const dateKey = getDateKey(selectedDate);
-    const userDeductions = getLocalUserDeductions();
-    const savedDeduction = userDeductions[dateKey];
-    if (savedDeduction !== undefined) {
-      setDailyDeduction(savedDeduction.toString());
-    } else {
-      setDailyDeduction('350');
-    }
-  }, [selectedDate]);
+    const deductions = getLocalUserDeductions();
+    const dateKey = dateNs.toString();
+    const deduction = deductions[dateKey] || 0n;
+    setUserDeduction(deduction);
+    setDeductionInput(deduction.toString());
+  }, [dateNs]);
 
-  const formatAmount = (amount: bigint | number) => {
+  const handleDeductionChange = (value: string) => {
+    setDeductionInput(value);
+  };
+
+  const handleDeductionBlur = () => {
+    const amount = BigInt(deductionInput || '0');
+    const deductions = getLocalUserDeductions();
+    const dateKey = dateNs.toString();
+    deductions[dateKey] = amount;
+    saveLocalUserDeductions(deductions);
+    setUserDeduction(amount);
+  };
+
+  const formatAmount = (amount: bigint) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
@@ -71,98 +85,73 @@ export default function DaywiseTransactions() {
     }).format(Number(amount));
   };
 
-  const formatTime = (timestamp: bigint) => {
-    const date = new Date(Number(timestamp) / 1_000_000);
-    return format(date, 'hh:mm a');
-  };
-
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDate(date);
-      setIsCalendarOpen(false);
+  const getTransactionTypeLabel = (type: TransactionType) => {
+    switch (type) {
+      case TransactionType.cashIn:
+        return 'Cash In';
+      case TransactionType.cashOut:
+        return 'Cash Out';
+      case TransactionType.upiIn:
+        return 'UPI In';
+      case TransactionType.upiOut:
+        return 'UPI Out';
+      case TransactionType.savingsOut:
+        return 'Savings (10%) Out';
+      case TransactionType.deductionsOut:
+        return 'Deductions Out';
+      default:
+        return 'Unknown';
     }
   };
 
-  const getDateKey = (date: Date) => {
-    const dateMs = date.setHours(0, 0, 0, 0);
-    return BigInt(dateMs * 1_000_000).toString();
-  };
-
-  const handleDailyDeductionChange = (value: string) => {
-    // Allow negative numbers and empty string
-    if (value === '' || value === '-' || /^-?\d+$/.test(value)) {
-      setDailyDeduction(value);
+  const calculateTenPercentDeduction = (total: bigint): bigint => {
+    if (total <= 0n) return 0n;
+    const tenPercent = (total * 10n) / 100n;
+    const remainder = tenPercent % 10n;
+    if (remainder >= 5n) {
+      return tenPercent + (10n - remainder);
+    } else {
+      return tenPercent - remainder;
     }
   };
 
-  const handleDailyDeductionSave = () => {
-    const amount = dailyDeduction === '' || dailyDeduction === '-' ? 0n : BigInt(dailyDeduction);
-    const dateMs = selectedDate.setHours(0, 0, 0, 0);
-    const dateNs = BigInt(dateMs * 1_000_000);
-    
-    setUserDeductionMutation.mutate({ date: dateNs, amount });
-  };
-
-  // Filter transactions for selected date
-  const getTransactionsForDate = () => {
-    if (!allTransactions) return [];
-
-    const selectedDateMs = selectedDate.setHours(0, 0, 0, 0);
-    const startOfDay = selectedDateMs;
+  // Calculate day-wise stats from transactions
+  const daywiseData = transactions ? (() => {
+    const selectedDateMs = Number(dateNs) / 1_000_000;
+    const selectedDate = new Date(selectedDateMs);
+    selectedDate.setHours(0, 0, 0, 0);
+    const startOfDay = selectedDate.getTime();
     const endOfDay = startOfDay + 24 * 60 * 60 * 1000;
 
-    return allTransactions.filter((t) => {
+    const filteredTransactions = transactions.filter((t) => {
       const txnDateMs = Number(t.date) / 1_000_000;
       return txnDateMs >= startOfDay && txnDateMs < endOfDay;
     });
-  };
-
-  // Calculate statistics for selected date
-  const calculateStats = () => {
-    const transactions = getTransactionsForDate();
 
     let cashIn = 0n;
     let cashOut = 0n;
     let upiIn = 0n;
     let upiOut = 0n;
 
-    transactions.forEach((t) => {
-      switch (t.transactionType) {
-        case 'cashIn':
-          cashIn += t.amount;
+    filteredTransactions.forEach((transaction) => {
+      switch (transaction.transactionType) {
+        case TransactionType.cashIn:
+          cashIn += transaction.amount;
           break;
-        case 'cashOut':
-          cashOut += t.amount;
+        case TransactionType.cashOut:
+          cashOut += transaction.amount;
           break;
-        case 'upiIn':
-          upiIn += t.amount;
+        case TransactionType.upiIn:
+          upiIn += transaction.amount;
           break;
-        case 'upiOut':
-          upiOut += t.amount;
+        case TransactionType.upiOut:
+          upiOut += transaction.amount;
           break;
       }
     });
 
-    // Combined Total = Cash In + UPI In (inflows only)
     const combinedTotal = cashIn + upiIn;
-
-    // Calculate 10% deduction rounded to nearest 10 (based on Cash In + UPI In)
-    let tenPercentDeduction = 0n;
-    if (combinedTotal > 0n) {
-      const tenPercent = (combinedTotal * 10n) / 100n;
-      const remainder = tenPercent % 10n;
-      if (remainder >= 5n) {
-        tenPercentDeduction = tenPercent + (10n - remainder);
-      } else {
-        tenPercentDeduction = tenPercent - remainder;
-      }
-    }
-
-    // Get daily deduction amount
-    const dailyDeductionAmount = dailyDeduction === '' || dailyDeduction === '-' ? 0n : BigInt(dailyDeduction);
-
-    // Calculate total balance for day
-    const totalBalanceForDay = BigInt(combinedTotal) - tenPercentDeduction - dailyDeductionAmount - BigInt(cashOut + upiOut);
+    const totalBalanceForDay = BigInt(combinedTotal) - BigInt(cashOut + upiOut);
 
     return {
       cashIn,
@@ -170,605 +159,458 @@ export default function DaywiseTransactions() {
       upiIn,
       upiOut,
       combinedTotal,
-      tenPercentDeduction,
-      dailyDeductionAmount,
       totalBalanceForDay,
-      transactions,
+      transactions: filteredTransactions,
     };
-  };
+  })() : null;
 
-  const generatePDF = () => {
-    const stats = calculateStats();
-    const transactions = stats.transactions;
+  const handleGeneratePDF = () => {
+    if (!daywiseData) return;
 
-    // Create PDF content as HTML
-    const pdfContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Day-wise Transaction Report - ${format(selectedDate, 'PPP')}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-      color: #333;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-      border-bottom: 3px solid #0ea5e9;
-      padding-bottom: 20px;
-    }
-    .header h1 {
-      color: #0ea5e9;
-      margin: 0;
-      font-size: 28px;
-    }
-    .header h2 {
-      color: #64748b;
-      margin: 10px 0 0 0;
-      font-size: 18px;
-      font-weight: normal;
-    }
-    .summary-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 30px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .summary-table th {
-      background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
-      color: white;
-      padding: 12px;
-      text-align: left;
-      font-weight: bold;
-    }
-    .summary-table td {
-      padding: 12px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .summary-table tr:nth-child(even) {
-      background-color: #f8fafc;
-    }
-    .summary-table tr:last-child td {
-      border-bottom: 2px solid #0ea5e9;
-      font-weight: bold;
-    }
-    .transactions-section {
-      margin-top: 40px;
-    }
-    .transactions-section h3 {
-      color: #0ea5e9;
-      border-bottom: 2px solid #0ea5e9;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
-    }
-    .transaction-table {
-      width: 100%;
-      border-collapse: collapse;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .transaction-table th {
-      background: linear-gradient(135deg, #14b8a6 0%, #0ea5e9 100%);
-      color: white;
-      padding: 10px;
-      text-align: left;
-      font-weight: bold;
-      font-size: 14px;
-    }
-    .transaction-table td {
-      padding: 10px;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 13px;
-    }
-    .transaction-table tr:nth-child(even) {
-      background-color: #f8fafc;
-    }
-    .badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-    .badge-cash-in {
-      background-color: #d1fae5;
-      color: #065f46;
-    }
-    .badge-cash-out {
-      background-color: #fee2e2;
-      color: #991b1b;
-    }
-    .badge-upi-in {
-      background-color: #dbeafe;
-      color: #1e40af;
-    }
-    .badge-upi-out {
-      background-color: #fed7aa;
-      color: #9a3412;
-    }
-    .badge-derived {
-      background-color: #fef3c7;
-      color: #92400e;
-      font-style: italic;
-    }
-    .amount-positive {
-      color: #059669;
-      font-weight: bold;
-    }
-    .amount-negative {
-      color: #dc2626;
-      font-weight: bold;
-    }
-    .footer {
-      margin-top: 40px;
-      text-align: center;
-      color: #64748b;
-      font-size: 12px;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 20px;
-    }
-    .empty-state {
-      text-align: center;
-      padding: 40px;
-      color: #64748b;
-      font-style: italic;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>APJ ENTERPRISES</h1>
-    <h2>Day-wise Transaction Report</h2>
-    <h2>${format(selectedDate, 'EEEE, MMMM d, yyyy')}</h2>
-  </div>
+    const dateStr = format(selectedDate, 'PPP');
+    const tenPercentDeduction = calculateTenPercentDeduction(daywiseData.combinedTotal);
+    const userDeductionAmount = userDeduction || 0n;
 
-  <table class="summary-table">
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Cash In</td>
-        <td class="${Number(stats.cashIn) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.cashIn)}</td>
-      </tr>
-      <tr>
-        <td>Cash Out</td>
-        <td class="${Number(stats.cashOut) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.cashOut)}</td>
-      </tr>
-      <tr>
-        <td>UPI In</td>
-        <td class="${Number(stats.upiIn) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.upiIn)}</td>
-      </tr>
-      <tr>
-        <td>UPI Out</td>
-        <td class="${Number(stats.upiOut) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.upiOut)}</td>
-      </tr>
-      <tr>
-        <td>Combined Total (Cash In + UPI In)</td>
-        <td class="${Number(stats.combinedTotal) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.combinedTotal)}</td>
-      </tr>
-      <tr>
-        <td>10% Deduction (from Cash In + UPI In)</td>
-        <td class="${Number(stats.tenPercentDeduction) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.tenPercentDeduction)}</td>
-      </tr>
-      <tr>
-        <td>Daily Deduction</td>
-        <td class="${Number(stats.dailyDeductionAmount) >= 0 ? 'amount-positive' : 'amount-negative'}">${formatAmount(stats.dailyDeductionAmount)}</td>
-      </tr>
-      <tr>
-        <td><strong>Total Balance for Day</strong></td>
-        <td class="${Number(stats.totalBalanceForDay) >= 0 ? 'amount-positive' : 'amount-negative'}">
-          ${formatAmount(stats.totalBalanceForDay)}
-        </td>
-      </tr>
-    </tbody>
-  </table>
+    // Merge real transactions with derived rows
+    const derivedRows = getDerivedRowsForDate(dateNs);
+    const allRows: DisplayTransaction[] = [...daywiseData.transactions, ...derivedRows];
+    allRows.sort((a, b) => Number(b.date) - Number(a.date));
 
-  <div class="transactions-section">
-    <h3>Transaction Details</h3>
-    ${
-      transactions.length === 0
-        ? '<div class="empty-state">No transactions recorded for this date.</div>'
-        : `
-    <table class="transaction-table">
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Type</th>
-          <th>Amount</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${transactions
-          .map(
-            (t) => `
-        <tr>
-          <td>${formatTime(t.date)}</td>
-          <td>
-            <span class="badge badge-${t.transactionType.toLowerCase().replace(' ', '-')}">
-              ${t.transactionType === 'cashIn' ? 'Cash In' : t.transactionType === 'cashOut' ? 'Cash Out' : t.transactionType === 'upiIn' ? 'UPI In' : 'UPI Out'}
-            </span>
-          </td>
-          <td class="${Number(t.amount) >= 0 ? 'amount-positive' : 'amount-negative'}">
-            ${formatAmount(t.amount)}
-          </td>
-          <td>${t.description || '-'}</td>
-        </tr>
-        `
-          )
-          .join('')}
-      </tbody>
-    </table>
-    `
-    }
-  </div>
-
-  <div class="footer">
-    <p>Generated on ${format(new Date(), 'PPP')} at ${format(new Date(), 'pp')}</p>
-    <p>© 2025 APJ ENTERPRISES. All rights reserved.</p>
-  </div>
-</body>
-</html>
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Day-wise Transactions - ${dateStr}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #4F46E5;
+          }
+          .header h1 {
+            color: #4F46E5;
+            margin: 0;
+            font-size: 28px;
+          }
+          .header h2 {
+            color: #6B7280;
+            margin: 10px 0 0 0;
+            font-size: 18px;
+            font-weight: normal;
+          }
+          .summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+          }
+          .summary-box {
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #E5E7EB;
+          }
+          .summary-box.incoming {
+            background-color: #D1FAE5;
+            border-color: #059669;
+          }
+          .summary-box.outgoing {
+            background-color: #FEE2E2;
+            border-color: #DC2626;
+          }
+          .summary-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #6B7280;
+          }
+          .summary-box .amount {
+            font-size: 20px;
+            font-weight: bold;
+          }
+          .summary-box.incoming .amount {
+            color: #059669;
+          }
+          .summary-box.outgoing .amount {
+            color: #DC2626;
+          }
+          .transactions {
+            margin-top: 30px;
+          }
+          .transactions h2 {
+            color: #1F2937;
+            margin-bottom: 15px;
+            font-size: 20px;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          th {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 14px;
+          }
+          td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #E5E7EB;
+            font-size: 13px;
+          }
+          tr:nth-child(even) {
+            background-color: #F9FAFB;
+          }
+          tr:hover {
+            background-color: #F3F4F6;
+          }
+          .amount-incoming {
+            color: #059669;
+            font-weight: bold;
+          }
+          .amount-outgoing {
+            color: #DC2626;
+            font-weight: bold;
+          }
+          .derived-row {
+            background-color: #FEF3C7;
+            font-style: italic;
+          }
+          .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #E5E7EB;
+            text-align: center;
+            color: #6B7280;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>APJ ENTERPRISES</h1>
+          <h2>Day-wise Transaction Report</h2>
+        </div>
+        <div class="summary">
+          <div class="summary-box incoming">
+            <h3>Cash In</h3>
+            <div class="amount">${formatAmount(daywiseData.cashIn)}</div>
+          </div>
+          <div class="summary-box outgoing">
+            <h3>Cash Out</h3>
+            <div class="amount">${formatAmount(daywiseData.cashOut)}</div>
+          </div>
+          <div class="summary-box incoming">
+            <h3>UPI In</h3>
+            <div class="amount">${formatAmount(daywiseData.upiIn)}</div>
+          </div>
+          <div class="summary-box outgoing">
+            <h3>UPI Out</h3>
+            <div class="amount">${formatAmount(daywiseData.upiOut)}</div>
+          </div>
+          <div class="summary-box incoming">
+            <h3>Combined Total (In)</h3>
+            <div class="amount">${formatAmount(daywiseData.combinedTotal)}</div>
+          </div>
+          <div class="summary-box outgoing">
+            <h3>10% Deduction</h3>
+            <div class="amount">${formatAmount(tenPercentDeduction)}</div>
+          </div>
+          <div class="summary-box outgoing">
+            <h3>User Deduction</h3>
+            <div class="amount">${formatAmount(userDeductionAmount)}</div>
+          </div>
+          <div class="summary-box">
+            <h3>Total Balance</h3>
+            <div class="amount">${formatAmount(daywiseData.totalBalanceForDay)}</div>
+          </div>
+        </div>
+        <div class="transactions">
+          <h2>Transactions for ${dateStr}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Description</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
     `;
 
-    // Create a blob and download
-    const blob = new Blob([pdfContent], { type: 'text/html' });
+    allRows.forEach((row) => {
+      if (isDerivedRow(row)) {
+        const amountStr = formatAmount(row.amount);
+        htmlContent += `
+          <tr class="derived-row">
+            <td>${row.derivedType}</td>
+            <td><em>Auto-calculated deduction</em></td>
+            <td style="text-align: right;" class="amount-outgoing">${amountStr}</td>
+          </tr>
+        `;
+      } else if (isRealTransaction(row)) {
+        const typeLabel = getTransactionTypeLabel(row.transactionType);
+        const description = row.description || '-';
+        const amountStr = formatAmount(row.amount);
+        const amountClass = getAmountColorFromType(row.transactionType) === 'text-green-600'
+          ? 'amount-incoming'
+          : 'amount-outgoing';
+
+        htmlContent += `
+          <tr>
+            <td>${typeLabel}</td>
+            <td>${description}</td>
+            <td style="text-align: right;" class="${amountClass}">${amountStr}</td>
+          </tr>
+        `;
+      }
+    });
+
+    htmlContent += `
+            </tbody>
+          </table>
+        </div>
+        <div class="footer">
+          <p>This report was generated automatically by APJ ENTERPRISES Transaction Management System</p>
+          <p>Generated on: ${format(new Date(), 'PPP p')}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `APJ_DayWise_Report_${format(selectedDate, 'yyyy-MM-dd')}.html`;
+    link.download = `daywise-transactions-${format(selectedDate, 'yyyy-MM-dd')}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-
-    // Also try to open print dialog for PDF conversion
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(pdfContent);
-      printWindow.document.close();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
-    }
   };
 
   if (isLoading) {
     return (
-      <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-        <h2 className="mb-6 text-3xl font-bold bg-gradient-to-r from-teal-600 via-blue-600 to-amber-500 bg-clip-text text-transparent">
-          Day-wise Transactions
-        </h2>
-        <div className="space-y-4">
-          <Skeleton className="h-12 w-full bg-gray-200" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} className="bg-gray-50 border-gray-200 shadow-md">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-32 bg-gray-200" />
-                  <Skeleton className="h-4 w-4 rounded-full bg-gray-200" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-8 w-32 bg-gray-200" />
-                </CardContent>
-              </Card>
-            ))}
+      <Card className="bg-white border border-gray-200 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-t-2xl border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <CalendarIconLucide className="h-5 w-5 text-white" />
+            <CardTitle className="text-white font-bold">Day-wise Transactions</CardTitle>
           </div>
-        </div>
-      </div>
+          <CardDescription className="text-white font-semibold">
+            View detailed transactions for a specific day
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full bg-gray-200" />
+            <Skeleton className="h-64 w-full bg-gray-200" />
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-        <h2 className="mb-6 text-3xl font-bold bg-gradient-to-r from-teal-600 via-blue-600 to-amber-500 bg-clip-text text-transparent">
-          Day-wise Transactions
-        </h2>
-        <Alert variant="destructive" className="bg-red-50 border-red-200 shadow-md">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertTitle className="font-bold text-red-900">Error</AlertTitle>
-          <AlertDescription className="text-red-800">
-            Failed to load transaction data. Please try refreshing the page.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Card className="bg-white border border-gray-200 shadow-xl">
+        <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-t-2xl border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <CalendarIconLucide className="h-5 w-5 text-white" />
+            <CardTitle className="text-white font-bold">Day-wise Transactions</CardTitle>
+          </div>
+          <CardDescription className="text-white font-semibold">
+            View detailed transactions for a specific day
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
+            <AlertDescription className="text-red-800">
+              Failed to load day-wise transactions. Please try again.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
     );
   }
 
-  const stats = calculateStats();
-  const transactions = stats.transactions;
-  
-  // Get derived rows for the selected date
-  const dateMs = selectedDate.setHours(0, 0, 0, 0);
-  const dateNs = BigInt(dateMs * 1_000_000);
-  const derivedRows = getDerivedRowsForDate(dateNs);
-  
-  // Merge transactions with derived rows for display
-  const allDisplayRows: DisplayTransaction[] = [...transactions, ...derivedRows];
+  if (!daywiseData) {
+    return null;
+  }
 
-  const categoryCards = [
-    {
-      title: 'Cash In',
-      value: stats.cashIn,
-      icon: ArrowUpCircle,
-      color: 'text-white',
-      bgGradient: 'from-emerald-500 to-green-500',
-      iconBg: 'bg-emerald-600',
-    },
-    {
-      title: 'Cash Out',
-      value: stats.cashOut,
-      icon: ArrowDownCircle,
-      color: 'text-white',
-      bgGradient: 'from-rose-500 to-red-500',
-      iconBg: 'bg-rose-600',
-    },
-    {
-      title: 'UPI In',
-      value: stats.upiIn,
-      icon: ArrowUpCircle,
-      color: 'text-white',
-      bgGradient: 'from-blue-500 to-indigo-500',
-      iconBg: 'bg-blue-600',
-    },
-    {
-      title: 'UPI Out',
-      value: stats.upiOut,
-      icon: ArrowDownCircle,
-      color: 'text-white',
-      bgGradient: 'from-orange-500 to-amber-500',
-      iconBg: 'bg-orange-600',
-    },
-    {
-      title: 'Combined Total',
-      value: stats.combinedTotal,
-      icon: TrendingUp,
-      color: 'text-white',
-      bgGradient: 'from-purple-500 to-pink-500',
-      iconBg: 'bg-purple-600',
-      description: 'Cash In + UPI In',
-    },
-    {
-      title: '10% Deduction',
-      value: stats.tenPercentDeduction,
-      icon: Percent,
-      color: 'text-white',
-      bgGradient: 'from-amber-500 to-yellow-500',
-      iconBg: 'bg-amber-600',
-      description: '10% of (Cash In + UPI In)',
-    },
-    {
-      title: 'Daily Deduction',
-      value: stats.dailyDeductionAmount,
-      icon: IndianRupee,
-      color: 'text-white',
-      bgGradient: 'from-fuchsia-500 to-pink-500',
-      iconBg: 'bg-fuchsia-600',
-      description: 'User-specified amount',
-    },
-    {
-      title: 'Total Balance for Day',
-      value: stats.totalBalanceForDay,
-      icon: Wallet,
-      color: 'text-white',
-      bgGradient: 'from-cyan-500 to-teal-500',
-      iconBg: 'bg-cyan-600',
-      description: 'Net balance for selected date',
-    },
-  ];
+  const tenPercentDeduction = calculateTenPercentDeduction(daywiseData.combinedTotal);
+  const userDeductionAmount = userDeduction || 0n;
+
+  // Merge real transactions with derived rows
+  const derivedRows = getDerivedRowsForDate(dateNs);
+  const allRows: DisplayTransaction[] = [...daywiseData.transactions, ...derivedRows];
+  allRows.sort((a, b) => Number(b.date) - Number(a.date));
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-teal-600 via-blue-600 to-amber-500 bg-clip-text text-transparent">
-          Day-wise Transactions
-        </h2>
-      </div>
-
-      {/* Date Selector */}
-      <div className="mb-6">
-        <Label htmlFor="date-selector" className="text-base font-semibold text-gray-700 mb-2 block">
-          Select Date
-        </Label>
-        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-start text-left font-semibold text-lg h-14 px-5 rounded-xl border-2 hover:bg-blue-50 hover:border-blue-400 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-blue-400 bg-white border-gray-300 shadow-sm text-black hover:text-black hover:font-bold"
-            >
-              <CalendarIcon className="mr-3 h-5 w-5 text-blue-600" />
-              <span className="text-lg font-bold text-black">{format(selectedDate, 'PPP')}</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 bg-white border-2 border-blue-300 shadow-2xl rounded-2xl" align="start">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleDateSelect}
-              initialFocus
-              className="modern-calendar"
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Daily Deduction Input */}
-      <div className="mb-6">
-        <Label htmlFor="daily-deduction" className="text-base font-semibold text-gray-700 mb-2 block">
-          Daily Deduction Amount (₹)
-        </Label>
-        <div className="flex gap-3">
-          <Input
-            id="daily-deduction"
-            type="text"
-            value={dailyDeduction}
-            onChange={(e) => handleDailyDeductionChange(e.target.value)}
-            placeholder="350 (positive or negative)"
-            className="flex-1 h-14 px-5 text-lg font-semibold rounded-xl border-2 border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-400 bg-white text-black"
-          />
+    <Card className="bg-white border border-gray-200 shadow-xl">
+      <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-t-2xl border-b border-gray-200">
+        <div className="flex items-center gap-2">
+          <CalendarIconLucide className="h-5 w-5 text-white" />
+          <CardTitle className="text-white font-bold">Day-wise Transactions</CardTitle>
+        </div>
+        <CardDescription className="text-white font-semibold">
+          View detailed transactions for a specific day
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-6 space-y-6">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+          <div className="flex-1 space-y-2 w-full">
+            <Label htmlFor="date-picker" className="text-gray-900 font-bold">
+              Select Date
+            </Label>
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  id="date-picker"
+                  variant="outline"
+                  className="w-full justify-start text-left font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
+                  {format(selectedDate, 'PPP')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedDate(date);
+                      setIsCalendarOpen(false);
+                    }
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           <Button
-            onClick={handleDailyDeductionSave}
-            disabled={setUserDeductionMutation.isPending}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-black font-bold shadow-lg transition-all duration-300 hover:shadow-xl h-14 px-8 text-base rounded-xl"
+            onClick={handleGeneratePDF}
+            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-lg shadow-md transition-all duration-200"
           >
-            {setUserDeductionMutation.isPending ? 'Saving...' : 'Save'}
+            <FileDown className="mr-2 h-4 w-4" />
+            Generate Report
           </Button>
         </div>
-        <p className="mt-2 text-sm text-gray-600">
-          Set the daily deduction amount for {format(selectedDate, 'PPP')}. This amount will be deducted from the total balance.
-        </p>
-      </div>
 
-      {/* Category Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {categoryCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card
-              key={card.title}
-              className={`transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-gradient-to-br ${card.bgGradient} border-0 shadow-lg`}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-bold text-white">{card.title}</CardTitle>
-                <div className={`rounded-full p-2.5 ${card.iconBg} transition-all duration-300 hover:scale-110 shadow-md`}>
-                  <Icon className={`h-4 w-4 ${card.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl sm:text-3xl font-bold text-white">
-                  {formatAmount(card.value)}
-                </div>
-                {card.description && (
-                  <p className="mt-2 text-xs text-white/90 font-medium">
-                    {card.description}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">Cash In</h3>
+            <p className="text-2xl font-black text-green-600">{formatAmount(daywiseData.cashIn)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">Cash Out</h3>
+            <p className="text-2xl font-black text-red-600">{formatAmount(daywiseData.cashOut)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">UPI In</h3>
+            <p className="text-2xl font-black text-green-600">{formatAmount(daywiseData.upiIn)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">UPI Out</h3>
+            <p className="text-2xl font-black text-red-600">{formatAmount(daywiseData.upiOut)}</p>
+          </div>
+        </div>
 
-      {/* Generate PDF Button */}
-      <div className="mb-6">
-        <Button
-          onClick={generatePDF}
-          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-black font-bold shadow-lg transition-all duration-300 hover:shadow-xl h-12 text-base rounded-xl"
-        >
-          <FileDown className="mr-2 h-5 w-5" />
-          Generate PDF Report
-        </Button>
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">Combined Total (In)</h3>
+            <p className="text-2xl font-black text-green-600">{formatAmount(daywiseData.combinedTotal)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">10% Deduction</h3>
+            <p className="text-2xl font-black text-red-600">{formatAmount(tenPercentDeduction)}</p>
+          </div>
+        </div>
 
-      {/* Transaction List with Derived Rows */}
-      <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-300 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-lg font-bold text-gray-800">
-            Transaction Details ({allDisplayRows.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {allDisplayRows.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <AlertCircle className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-              <p className="text-lg font-medium">No transactions found</p>
-              <p className="text-sm">No transactions recorded for the selected date.</p>
+        <div className="space-y-2">
+          <Label htmlFor="user-deduction" className="text-gray-900 font-bold">
+            User Specified Deduction
+          </Label>
+          <Input
+            id="user-deduction"
+            type="number"
+            value={deductionInput}
+            onChange={(e) => handleDeductionChange(e.target.value)}
+            onBlur={handleDeductionBlur}
+            placeholder="Enter deduction amount"
+            className="border-2 border-gray-300 bg-white text-black font-semibold rounded-lg shadow-sm"
+          />
+        </div>
+
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl p-4 shadow-md">
+          <div className="flex justify-between items-center text-white">
+            <span className="font-bold text-lg">Total Balance for Day:</span>
+            <span className="font-black text-2xl">{formatAmount(daywiseData.totalBalanceForDay)}</span>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Transactions</h3>
+          {allRows.length === 0 ? (
+            <div className="text-center py-8 text-gray-700 font-semibold">
+              No transactions found for this date
             </div>
           ) : (
             <div className="space-y-3">
-              {allDisplayRows.map((row, index) => {
+              {allRows.map((row, index) => {
                 const rowKey = isDerivedRow(row)
                   ? `derived-${row.derivedType}-${row.date.toString()}`
                   : `txn-${(row as Transaction).id.toString()}`;
 
-                // Render derived row
                 if (isDerivedRow(row)) {
                   return (
                     <div
                       key={rowKey}
-                      className="bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-xl border-2 border-amber-200 shadow-sm"
+                      className="flex justify-between items-center p-4 bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-xl shadow-sm"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-full bg-amber-100 p-2 shadow-md">
-                            <TrendingDown className="h-4 w-4 text-amber-600" />
-                          </div>
-                          <Badge className="bg-amber-100 text-amber-800 border-2 border-amber-300 font-bold shadow-sm">
-                            {row.derivedType}
-                          </Badge>
-                        </div>
-                        <span className="text-lg font-bold text-amber-700">
-                          {formatAmount(row.amount)}
-                        </span>
+                      <div>
+                        <p className="font-bold text-amber-700">{row.derivedType}</p>
+                        <p className="text-sm text-gray-700 italic font-medium">Auto-calculated deduction</p>
                       </div>
-                      <p className="text-sm text-gray-700 italic pl-1">
-                        Auto-calculated deduction
+                      <p className={`text-lg font-bold ${getDerivedRowAmountColor()}`}>
+                        {formatAmount(row.amount)}
                       </p>
                     </div>
                   );
                 }
 
-                // Render real transaction
                 const transaction = row as Transaction;
+                const amountColorClass = getAmountColorFromType(transaction.transactionType);
+
                 return (
                   <div
                     key={rowKey}
-                    className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
+                    className="flex justify-between items-center p-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            transaction.transactionType === 'cashIn'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : transaction.transactionType === 'cashOut'
-                              ? 'bg-rose-100 text-rose-700'
-                              : transaction.transactionType === 'upiIn'
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-orange-100 text-orange-700'
-                          }`}
-                        >
-                          {transaction.transactionType === 'cashIn'
-                            ? 'Cash In'
-                            : transaction.transactionType === 'cashOut'
-                            ? 'Cash Out'
-                            : transaction.transactionType === 'upiIn'
-                            ? 'UPI In'
-                            : 'UPI Out'}
-                        </span>
-                        <span className="text-sm text-gray-600 font-medium">
-                          {formatTime(transaction.date)}
-                        </span>
-                      </div>
-                      <span
-                        className={`text-lg font-bold ${
-                          Number(transaction.amount) >= 0
-                            ? 'text-green-600'
-                            : 'text-red-600'
-                        }`}
-                      >
-                        {formatAmount(transaction.amount)}
-                      </span>
+                    <div>
+                      <p className="font-bold text-gray-900">{getTransactionTypeLabel(transaction.transactionType)}</p>
+                      {transaction.description && (
+                        <p className="text-sm text-gray-700 font-medium">{transaction.description}</p>
+                      )}
                     </div>
-                    {transaction.description && (
-                      <p className="text-sm text-gray-700 mt-2 pl-1">
-                        {transaction.description}
-                      </p>
-                    )}
+                    <p className={`text-lg font-bold ${amountColorClass}`}>
+                      {formatAmount(transaction.amount)}
+                    </p>
                   </div>
                 );
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

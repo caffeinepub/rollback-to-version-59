@@ -1,89 +1,40 @@
 {
   "kind": "build_request",
-  "title": "Monthly tab: add Cheeti Deduction & Savings (10%) transaction-type options + description partial search",
+  "title": "Color transaction amount text by direction (Outgoing=red, Incoming=green) across all tabs",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "In the Monthly Transactions tab, extend the Transaction Type dropdown to include two additional selectable options: \"Cheeti Deduction\" and \"Savings (10%)\" (English labels). These options must be selectable alongside the existing backend TransactionType options.",
+      "text": "Update all transaction amount displays to color outgoing amounts red and incoming amounts green across every tab and every transaction view, using transaction direction (transactionType) rather than the numeric sign of the amount.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-19"
+          "msg-12"
         ],
         "quotes": [
-          "1. In \"monthly\" tab, in drop down option  of \"transaction type\", add cheeti deduction and also savings (10%)  and calculate accordingly."
+          "Color the amount font red in color which is outgoing and like wise incoming should be in green, do this in every tab and transaction"
         ]
       },
       "acceptanceCriteria": [
-        "Monthly Transactions 'Transaction Type' dropdown contains options for Cheeti Deduction and Savings (10%) in addition to existing types.",
-        "The selected value can be set to either new option without TypeScript errors.",
-        "User-facing labels are in English (exactly \"Cheeti Deduction\" and \"Savings (10%)\" or \"Savings (10%)\" with consistent capitalization)."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "When \"Cheeti Deduction\" or \"Savings (10%)\" is selected in the Monthly Transactions tab, calculate and display the corresponding monthly rows and totals based on the app’s existing localStorage-derived deduction/savings sources (the same sources used by the derived rows utilities), without creating or persisting new backend transactions. The monthly table must show only the derived rows for the selected month, and the Total Amount must be the sum of those derived amounts for that month.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-19"
-        ],
-        "quotes": [
-          "add cheeti deduction and also savings (10%)  and calculate accordingly."
-        ]
-      },
-      "acceptanceCriteria": [
-        "Selecting \"Savings (10%)\" shows the derived savings rows for dates within the selected month, derived from existing localStorage values (no backend writes).",
-        "Selecting \"Cheeti Deduction\" shows the derived cheeti deduction rows for dates within the selected month, derived from existing localStorage values (no backend writes).",
-        "Total Transactions and Total Amount reflect only the rows currently displayed for the selected derived type and selected month.",
-        "If there are no derived rows for the selected month/type, the Monthly tab shows a 'no transactions found' style empty state instead of errors.",
-        "Existing behavior for backend transaction types (Cash In/Out, UPI In/Out, etc.) remains unchanged."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "In the Monthly Transactions tab, add a Description search input that filters the currently displayed monthly results by transaction description using case-insensitive partial matching (substring match). The filter must apply immediately as the user types and must work with partial input.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-19"
-        ],
-        "quotes": [
-          "2. Also in \"monthly\" tab give an option to search the transaction description wise with partial input as well"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Monthly Transactions UI includes a Description search field (English placeholder text such as \"Search description...\").",
-        "Typing text filters results to only rows whose description contains the typed substring (case-insensitive).",
-        "Clearing the search text restores the unfiltered monthly results.",
-        "Search works in combination with the selected month and selected transaction type filters (i.e., it filters within the already month+type-filtered set).",
-        "Derived rows (Cheeti Deduction / Savings (10%)) do not cause crashes when searching; rows without descriptions are handled safely (e.g., treated as non-matches when search text is non-empty)."
+        "In Transaction History (frontend/src/components/TransactionHistory.tsx), amount text is red for outgoing transaction types (cashOut, upiOut, savingsOut, deductionsOut) and green for incoming transaction types (cashIn, upiIn), regardless of whether stored amounts are positive.",
+        "In Monthly Transactions (frontend/src/components/MonthlyTransactions.tsx), amount text in the on-screen table is red for outgoing and green for incoming, and the same rule is applied in the generated HTML report (the amount cell uses outgoing=red/incoming=green consistently).",
+        "In Day-wise Transactions (frontend/src/components/DaywiseTransactions.tsx), all amount text rendered for transaction rows is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red). The generated day-wise HTML report also uses outgoing=red/incoming=green for all amount cells and summary lines.",
+        "In Filter Transactions (frontend/src/components/FilterTransactions.tsx), amount text in the filtered transaction results list/table is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red).",
+        "No amount coloring uses `Number(amount) >= 0` as the primary determinant for in/out coloring (direction must come from transaction type / derived-row kind)."
       ]
     }
   ],
   "constraints": [
-    "Do not edit any files under frontend/src/components/ui or any other immutablePaths listed in SYSTEM_CONTEXT.",
-    "Keep the backend canister interface unchanged for these changes (do not add new backend TransactionType variants for derived rows).",
-    "Do not persist derived (Savings (10%) / Cheeti Deduction) rows as stored transactions; they must remain calculated from existing localStorage-derived sources."
+    "Do not edit files under frontend/src/components/ui (shadcn components); compose them instead.",
+    "Do not modify immutable hook files listed in SYSTEM_CONTEXT (useInternetIdentity, useActor, main.tsx).",
+    "Backend remains single-actor; no backend changes are required for this UI-only styling update."
   ],
   "nonGoals": [
-    "Implementing new backend APIs or schema changes to store cheeti/savings as real transactions.",
-    "Adding advanced search features (regex, fuzzy scoring, multiple fields) beyond simple case-insensitive substring match on description.",
-    "Changing how daily savings (10%) and cheeti amounts are computed elsewhere in the app (only use existing derived/localStorage sources for the monthly view)."
+    "Changing how amounts are stored/calculated in the backend (e.g., making outgoing amounts negative).",
+    "Adding new transaction types or new tabs/features."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

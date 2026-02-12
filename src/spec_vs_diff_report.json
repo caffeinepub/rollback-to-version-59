@@ -1,41 +1,63 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-09T13:26:24.555Z",
-  "summary": "MonthlyTransactions adds a derived-type selector union, pulls derived rows from localStorage via derivedTransactions utilities, and introduces a searchQuery filter. However, the diff does not clearly show the dropdown options/labels, and the description search behavior appears to filter derived rows by derivedType rather than by description. There are also indications (in the generated file summaries) of additional transaction-type support beyond the request.",
+  "generatedAt": "2026-02-12T10:28:22.254Z",
+  "summary": "Diff introduces a new utility to determine transaction direction from `transactionType` and adds/updates several components to use direction-based color classes. However, due to truncation and limited evidence, it is not fully verifiable that all required amount displays (including Monthly/Day-wise HTML reports and FilterTransactions real transaction rows) were updated and that no sign-based logic remains.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Extend the Monthly Transactions Transaction Type dropdown to include selectable options with English labels exactly \"Cheeti Deduction\" and \"Savings (10%)\" alongside existing backend TransactionType options.",
-      "reason": "The code defines selector values ('cheetiDeduction' / 'savings10Percent') but the diff is truncated before showing the Select items/labels; additionally, derived row labels used elsewhere are \"10% Savings\" (not \"Savings (10%)\"), creating risk that the displayed dropdown label is not the required exact text.",
+      "requirement": "Monthly Transactions HTML report uses outgoing=red/incoming=green consistently for the amount cell.",
+      "reason": "MonthlyTransactions.tsx is truncated and the diff summary does not show any changes to the HTML report generation portion (if present) or evidence that amount coloring was applied in the generated report.",
       "evidence": [
-        "frontend/src/components/MonthlyTransactions.tsx",
-        "frontend/src/utils/derivedTransactions.ts"
+        "frontend/src/components/MonthlyTransactions.tsx (truncated)"
       ]
     },
     {
-      "id": "REQ-3",
-      "requirement": "Description search input filters currently displayed monthly results by transaction description using case-insensitive substring match; derived rows without descriptions should be handled safely (non-matches when search text is non-empty).",
-      "reason": "For derived rows, the implemented filter searches derivedRow.derivedType instead of transaction description. This does not match the requirement to search by description and also means derived rows may match on type text rather than being treated as non-matches when search is non-empty.",
+      "id": "REQ-1",
+      "requirement": "Day-wise Transactions generated HTML report uses outgoing=red/incoming=green for all amount cells and summary lines.",
+      "reason": "DaywiseTransactions.tsx is truncated and the diff summary does not show the HTML report generation code/strings updated to apply the new direction-based coloring.",
       "evidence": [
-        "frontend/src/components/MonthlyTransactions.tsx"
+        "frontend/src/components/DaywiseTransactions.tsx (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-1",
+      "requirement": "Filter Transactions: amount text for filtered real transaction rows is red for outgoing and green for incoming using transactionType (and derived rows treated as outgoing/red).",
+      "reason": "FilterTransactions.tsx only shows an import of `getDerivedRowAmountColor` (for derived rows). There is no visible evidence that real transaction rows use `getAmountColorFromType`/direction-based coloring, and the file is truncated before the rendering section.",
+      "evidence": [
+        "frontend/src/components/FilterTransactions.tsx (truncated)"
+      ]
+    },
+    {
+      "id": "REQ-1",
+      "requirement": "No amount coloring uses `Number(amount) >= 0` as the primary determinant for in/out coloring.",
+      "reason": "The diff summary does not show the actual amount-rendering sections in all components (files are truncated), so it cannot be confirmed that any prior sign-based coloring logic was removed everywhere.",
+      "evidence": [
+        "frontend/src/components/TransactionHistory.tsx (truncated)",
+        "frontend/src/components/MonthlyTransactions.tsx (truncated)",
+        "frontend/src/components/DaywiseTransactions.tsx (truncated)",
+        "frontend/src/components/FilterTransactions.tsx (truncated)"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "Support for new transaction types \"Savings (10%) Out\" and \"Deductions Out\" in hooks/forms/balance calculations.",
-      "reason": "The BuildRequest explicitly constrains keeping the backend canister interface unchanged and focuses only on adding derived monthly view options without persisting new transaction types. The diff summary file claims new transaction-type support beyond the requested Monthly tab changes.",
+      "description": "Added icon background and icon color helpers for transaction direction (green/red) beyond just amount text coloring.",
+      "reason": "BuildRequest only asks to color transaction amount text by direction; icon color/background APIs are additional UI behavior not requested.",
       "evidence": [
-        "frontend-file-summaries.txt"
+        "frontend/src/utils/transactionDirection.ts (getIconBgColor, getIconColor)",
+        "frontend/src/components/TransactionHistory.tsx (imports getIconBgColor, getIconColor)"
       ]
     }
   ],
-  "confidence": 0.64,
+  "confidence": 0.55,
   "changed_files": [
     "frontend-file-summaries.txt",
+    "frontend/src/components/DaywiseTransactions.tsx",
+    "frontend/src/components/FilterTransactions.tsx",
     "frontend/src/components/MonthlyTransactions.tsx",
-    "frontend/src/utils/derivedTransactions.ts",
+    "frontend/src/components/TransactionHistory.tsx",
+    "frontend/src/utils/transactionDirection.ts",
     "project_state.json"
   ]
 }

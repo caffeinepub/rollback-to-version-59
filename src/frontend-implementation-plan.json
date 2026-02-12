@@ -1,62 +1,43 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Monthly tab: derived Cheeti Deduction / Savings (10%) options + description search",
+  "title": "Color transaction amount text by transaction direction across all tabs and reports",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Extend the Monthly Transactions Transaction Type dropdown with selectable derived options: Cheeti Deduction and Savings (10%), without changing backend TransactionType.",
+      "summary": "Use transactionType (not numeric sign) to consistently color transaction amount text: outgoing=red, incoming=green across all tabs/views and generated HTML reports, including derived rows.",
       "acceptanceCriteria": [
-        "Monthly Transactions 'Transaction Type' dropdown contains options for Cheeti Deduction and Savings (10%) in addition to existing types.",
-        "The selected value can be set to either new option without TypeScript errors.",
-        "User-facing labels are in English (exactly \"Cheeti Deduction\" and \"Savings (10%)\" or \"Savings (10%)\" with consistent capitalization)."
+        "In Transaction History (frontend/src/components/TransactionHistory.tsx), amount text is red for outgoing transaction types (cashOut, upiOut, savingsOut, deductionsOut) and green for incoming transaction types (cashIn, upiIn), regardless of whether stored amounts are positive.",
+        "In Monthly Transactions (frontend/src/components/MonthlyTransactions.tsx), amount text in the on-screen table is red for outgoing and green for incoming, and the same rule is applied in the generated HTML report (the amount cell uses outgoing=red/incoming=green consistently).",
+        "In Day-wise Transactions (frontend/src/components/DaywiseTransactions.tsx), all amount text rendered for transaction rows is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red). The generated day-wise HTML report also uses outgoing=red/incoming=green for all amount cells and summary lines.",
+        "In Filter Transactions (frontend/src/components/FilterTransactions.tsx), amount text in the filtered transaction results list/table is red for outgoing and green for incoming; derived deduction/savings rows are treated as outgoing (red).",
+        "No amount coloring uses `Number(amount) >= 0` as the primary determinant for in/out coloring (direction must come from transaction type / derived-row kind)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/MonthlyTransactions.tsx",
-          "operation": "modify",
-          "description": "Add two new selectable transaction-type options to the existing shadcn/ui Select in the Monthly tab, by introducing a frontend-only union type for the selector value (backend TransactionType plus derived-type string literals). Ensure labels render exactly as required and selection state is type-safe. Verify the component's usage instructions before implementing."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "When a derived type is selected in Monthly Transactions, display month-scoped derived rows and totals computed from existing localStorage-derived sources (no backend writes).",
-      "acceptanceCriteria": [
-        "Selecting \"Savings (10%)\" shows the derived savings rows for dates within the selected month, derived from existing localStorage values (no backend writes).",
-        "Selecting \"Cheeti Deduction\" shows the derived cheeti deduction rows for dates within the selected month, derived from existing localStorage values (no backend writes).",
-        "Total Transactions and Total Amount reflect only the rows currently displayed for the selected derived type and selected month.",
-        "If there are no derived rows for the selected month/type, the Monthly tab shows a 'no transactions found' style empty state instead of errors.",
-        "Existing behavior for backend transaction types (Cash In/Out, UPI In/Out, etc.) remains unchanged."
-      ],
-      "file_operations": [
+          "path": "frontend/src/utils/transactionDirection.ts",
+          "operation": "create",
+          "description": "Add a shared direction helper that classifies incoming vs outgoing using TransactionType (cashIn/upiIn=incoming; cashOut/upiOut/savingsOut/deductionsOut=outgoing) and provides reusable helpers for choosing amount text color classes for (a) real transactions and (b) derived rows (always outgoing)."
+        },
         {
-          "path": "frontend/src/utils/derivedTransactions.ts",
+          "path": "frontend/src/components/TransactionHistory.tsx",
           "operation": "modify",
-          "description": "Extend derived row support for Monthly view by providing a helper that returns derived rows scoped to a given month (using the same localStorage keys and derived-row generation logic already used elsewhere). Ensure derived monthly rows can be rendered safely in the Monthly table (including stable display fields like description text for derived rows if needed for consistent UI/search behavior)."
+          "description": "Replace any amount/icon color decisions based on Number(amount) sign with direction derived from transaction.transactionType (incoming=green, outgoing=red). Apply the same outgoing treatment (red) to derived rows’ amount text to keep behavior consistent across the transaction views."
         },
         {
           "path": "frontend/src/components/MonthlyTransactions.tsx",
           "operation": "modify",
-          "description": "Update Monthly filtering logic to branch between: (a) existing backend transaction-type filtering for real TransactionType values, and (b) derived-row generation for the selected month when \"Cheeti Deduction\" or \"Savings (10%)\" is selected. Display only derived rows for the selected month, compute totals from the displayed derived amounts, and keep the existing empty-state styling for months/types with zero rows. Verify the component's usage instructions before implementing."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Add a case-insensitive partial Description search field that filters the currently displayed Monthly results as the user types.",
-      "acceptanceCriteria": [
-        "Monthly Transactions UI includes a Description search field (English placeholder text such as \"Search description...\").",
-        "Typing text filters results to only rows whose description contains the typed substring (case-insensitive).",
-        "Clearing the search text restores the unfiltered monthly results.",
-        "Search works in combination with the selected month and selected transaction type filters (i.e., it filters within the already month+type-filtered set).",
-        "Derived rows (Cheeti Deduction / Savings (10%)) do not cause crashes when searching; rows without descriptions are handled safely (e.g., treated as non-matches when search text is non-empty)."
-      ],
-      "file_operations": [
+          "description": "Update the on-screen monthly transactions table amount cell styling to use direction derived from transactionType (and derived rows treated as outgoing). Update the generated HTML report logic so the amount cell class is chosen via transaction type direction rather than string checks/sign checks, ensuring outgoing=red and incoming=green consistently."
+        },
         {
-          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
           "operation": "modify",
-          "description": "Add a Description search input (using shadcn/ui input primitives already present in the app) and apply an immediate case-insensitive substring filter to the already month+type-scoped results. Ensure filtering works for both real transactions and derived rows, safely handling missing/empty descriptions. Verify the component's usage instructions before implementing."
+          "description": "Update all rendered day-wise transaction row amount text to use transactionType direction (incoming=green, outgoing=red), and treat derived deduction/savings rows as outgoing (red). Update the generated day-wise HTML report to use direction-based classes for both the summary lines (cashIn/upiIn incoming; cashOut/upiOut and deductions outgoing) and transaction rows, eliminating Number(amount) >= 0 based in/out coloring."
+        },
+        {
+          "path": "frontend/src/components/FilterTransactions.tsx",
+          "operation": "modify",
+          "description": "Update filtered transaction results amount styling so real transactions use transactionType direction (incoming=green, outgoing=red) and derived rows are treated as outgoing (red). Remove any transaction-row in/out color logic based primarily on numeric sign."
         }
       ]
     }

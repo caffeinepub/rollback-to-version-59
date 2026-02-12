@@ -1,32 +1,16 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "New project",
+  "summary": "Project renamed to APJ ENTERPRISES; update UI to color transaction amounts based on direction across the app.",
   "architectural_notes": [],
   "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-in-the-monthly-transactions-tab-extend-the-transaction-type-dropdown-to-include-two-additional-selectable-options-cheeti-deduction-and-savings-10-english-labels-these-options-must-be-selectable-alongside-the-existing-backend-transactiontype-options",
-      "title": "In the Monthly Transactions tab, extend the Transaction Type dropdown to include two additional selectable options: \"Cheeti Deduction\" and \"Savings (10%)\" (English labels). These options must be selectable alongside the existing backend TransactionType options.",
+      "id": "feature-update-all-transaction-amount-displays-to-color-outgoing-amounts-red-and-incoming-amounts-green-across-every-tab-and-every-transaction-view-using-transaction-direction-transactiontype-rather-than-the-numeric-sign-of-the-amount",
+      "title": "Update all transaction amount displays to color outgoing amounts red and incoming amounts green across every tab and every transaction view, using transaction direction (transactionType) rather than the numeric sign of the amount.",
       "reqIds": [
         "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-when-cheeti-deduction-or-savings-10-is-selected-in-the-monthly-transactions-tab-calculate-and-display-the-corresponding-monthly-rows-and-totals-based-on-the-app-s-existing-localstorage-derived-deduction-savings-sources-the-same-sources-used-by-the-derived-rows-utilities-without-creating-or-persisting-new-backend-transactions-the-monthly-table-must-show-only-the-derived-rows-for-the-selected-month-and-the-total-amount-must-be-the-sum-of-those-derived-amounts-for-that-month",
-      "title": "When \"Cheeti Deduction\" or \"Savings (10%)\" is selected in the Monthly Transactions tab, calculate and display the corresponding monthly rows and totals based on the app’s existing localStorage-derived deduction/savings sources (the same sources used by the derived rows utilities), without creating or persisting new backend transactions. The monthly table must show only the derived rows for the selected month, and the Total Amount must be the sum of those derived amounts for that month.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-in-the-monthly-transactions-tab-add-a-description-search-input-that-filters-the-currently-displayed-monthly-results-by-transaction-description-using-case-insensitive-partial-matching-substring-match-the-filter-must-apply-immediately-as-the-user-types-and-must-work-with-partial-input",
-      "title": "In the Monthly Transactions tab, add a Description search input that filters the currently displayed monthly results by transaction description using case-insensitive partial matching (substring match). The filter must apply immediately as the user types and must work with partial input.",
-      "reqIds": [
-        "REQ-3"
       ],
       "version": 1
     }
@@ -34,13 +18,7 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Monthly tab: add 'cheeti deduction' and 'savings (10%)' to Transaction Type dropdown and calculate accordingly",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Monthly tab: add description-wise transaction search with partial input matching",
+      "summary": "Color outgoing transaction amounts red and incoming amounts green across every tab and all transaction views.",
       "reqIds": [],
       "status": "pending"
     }
