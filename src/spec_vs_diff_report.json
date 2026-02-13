@@ -1,31 +1,40 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-12T10:37:04.014Z",
-  "summary": "The diff shows updates to MonthlyTransactions with safer defaults (e.g., unknown transaction type label) and some filtering logic, but the MonthlyTransactions change is truncated, so key acceptance criteria around the actual runtime-error fix and search/filter hardening cannot be fully verified from the provided evidence.",
+  "generatedAt": "2026-02-13T17:44:21.869Z",
+  "summary": "REQ-2 (Monthly tab year-wise view) appears implemented via a new month/year viewMode with year selection and client-side filtering. REQ-3 is partially implemented: an Overview Archive month state/session parameter mechanism and current-month default filtering were added in TransactionHistory, but the diff does not provide clear evidence that Overview tiles open a transaction listing that uses this filter, nor that the Archive selection UI is clearly visible/resettable. REQ-1 (restore custom date picker styling in Filter/Daywise) cannot be confirmed from the provided diff evidence.",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
-      "reason": "MonthlyTransactions.tsx is truncated before the full render/search/filter logic and any explicit error-boundary/guard changes; the diff summary does not provide enough evidence to confirm the specific runtime exception causing the blank screen is addressed and that switching to the Monthly tab produces no uncaught exceptions.",
+      "requirement": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
+      "reason": "FilterTransactions and DaywiseTransactions use the Calendar component, but the diff summary does not show any concrete styling changes (e.g., Calendar props/classNames or restored CSS) that demonstrate the custom modern calendar styling is applied instead of default styling.",
       "evidence": [
-        "frontend/src/components/MonthlyTransactions.tsx (truncated)"
+        "frontend/src/components/FilterTransactions.tsx",
+        "frontend/src/components/DaywiseTransactions.tsx"
       ]
     },
     {
-      "id": "REQ-2",
-      "requirement": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
-      "reason": "The diff shows a fallback label for unknown transaction types, but the search portion is explicitly truncated (\"// Apply sear...\") so there is no visible evidence that searching safely handles undefined/empty descriptions or that all filter modes are guarded against unexpected row shapes without crashing.",
+      "id": "REQ-3",
+      "requirement": "From Overview, opening a tile’s transactions shows only the current month by default, and an Archive month selector (month+year) changes the tile listings to the selected month; selection is visible and resettable.",
+      "reason": "The diff shows Archive month state in Dashboard and month filtering in TransactionHistory via session parameters, but does not clearly show that Overview tile interactions actually open a transactions listing that uses TransactionHistory (tiles shown call onTileClick which, per Dashboard snippet, navigates to Add Transaction). Also, the provided truncation does not show the Archive UI control rendering, visibility of the selected month/year, or a reset control in the Overview UI.",
       "evidence": [
-        "frontend/src/components/MonthlyTransactions.tsx (truncated)"
+        "frontend/src/pages/Dashboard.tsx",
+        "frontend/src/components/BalanceCards.tsx",
+        "frontend/src/components/TransactionHistory.tsx"
       ]
     }
   ],
   "hallucinated_features": [],
-  "confidence": 0.42,
+  "confidence": 0.62,
   "changed_files": [
     "frontend-file-summaries.txt",
+    "frontend/src/components/BalanceCards.tsx",
+    "frontend/src/components/DaywiseTransactions.tsx",
+    "frontend/src/components/FilterTransactions.tsx",
     "frontend/src/components/MonthlyTransactions.tsx",
+    "frontend/src/components/TransactionHistory.tsx",
+    "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/utils/derivedTransactions.ts",
     "project_state.json"
   ]
 }

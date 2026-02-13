@@ -1,37 +1,76 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix Monthly tab blank screen and harden Monthly Transactions rendering",
+  "title": "Calendar styling restoration, Monthly year view, and Overview archive month filtering",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Fix the runtime error triggered when opening the Dashboard \"Monthly\" tab so the Monthly Transactions view renders reliably.",
+      "summary": "Restore the app’s modern custom calendar styling for date pickers in Filter and Daywise tabs.",
       "acceptanceCriteria": [
-        "Clicking the \"Monthly\" tab no longer results in a blank screen.",
-        "The Monthly Transactions view renders successfully on first load (even with no transactions).",
-        "No uncaught exceptions are thrown in the browser console when switching to the Monthly tab."
+        "In the Filter tab, the calendar popover uses the custom styled calendar appearance (not the default unstyled calendar).",
+        "In the Daywise tab, the calendar popover uses the same custom styled calendar appearance.",
+        "No functional regressions: selecting a date (or start/end date range) still updates the results as before."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/MonthlyTransactions.tsx",
+          "path": "frontend/src/components/FilterTransactions.tsx",
           "operation": "modify",
-          "description": "Remove the crashing Monthly type filter setup by replacing the Select's empty-string option with a non-empty sentinel (e.g., \"all\") and updating the component state/filtering/PDF label logic accordingly (Radix/shadcn Select items must not use an empty value). Ensure the Monthly tab can mount without throwing."
+          "description": "Apply the existing global modern calendar styling by ensuring the shadcn-ui Calendar rendered in the Start Date and End Date popovers uses the `modern-calendar` styling hook (e.g., via the Calendar component’s className / wrapper class passed from this component). Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/DaywiseTransactions.tsx",
+          "operation": "modify",
+          "description": "Apply the existing global modern calendar styling by ensuring the shadcn-ui Calendar rendered in the Daywise date popover uses the `modern-calendar` styling hook (e.g., via the Calendar component’s className / wrapper class passed from this component). Verify the component's usage instructions before implementing."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Make Monthly Transactions filtering/search resilient to partial or unexpected transaction data so the UI never crashes and always renders safe fallbacks.",
+      "summary": "Add a Year view option to the Monthly tab to view transactions year-wise alongside the existing Month view.",
       "acceptanceCriteria": [
-        "Typing into the Monthly search box does not crash the page even if some transactions have empty/undefined descriptions.",
-        "Filtering by each transaction type option (and derived row types) does not crash the page and produces a stable rendered table state.",
-        "When an unexpected/unknown transaction type is encountered, the UI displays a reasonable fallback label (e.g., \"Unknown\") and continues rendering."
+        "Monthly tab includes a clear control to switch between 'Month' view and 'Year' view (English labels).",
+        "In 'Year' view, the user can select a year and see transactions limited to that year.",
+        "Type filtering and search continue to work in Year view (or are clearly disabled with an explanation if not supported); the UI must not show incorrect mixed-year results.",
+        "Switching between Month and Year view does not break the existing month picker behavior."
       ],
       "file_operations": [
         {
           "path": "frontend/src/components/MonthlyTransactions.tsx",
           "operation": "modify",
-          "description": "Harden search and row rendering against data-shape issues: safely coerce description to a string for searching (e.g., (description ?? '').toLowerCase()), guard any string operations, and ensure rendering uses fallbacks when fields are missing. Add a safe transaction-type labeling strategy that tolerates unexpected values (keep a visible fallback label like \"Unknown\" and avoid calling transaction-type helpers with invalid values)."
+          "description": "Add a view-mode control (Month/Year) and implement a Year view that filters already-fetched transactions to the selected year only, while keeping the existing type filtering and text search consistent. Preserve the existing Month picker behavior in Month view. Use existing shadcn-ui controls (e.g., Select/Button/Popover) to keep UI consistent, and ensure any derived-row logic is not incorrectly mixed across the year (either adapt it correctly or clearly scope derived rows to Month view only with English explanatory text). Verify the component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "In Overview, default tile drill-down listings to current month and add an Archive month selector to view older months (client-side filtering only).",
+      "acceptanceCriteria": [
+        "From Overview, opening a tile’s transactions (e.g., Cash In) shows only the current month’s transactions by default.",
+        "Overview includes an 'Archive' UI control (English text) that allows selecting a month (month + year).",
+        "When an Archive month is selected, opening any relevant Overview tile shows transactions filtered to the selected month instead of the current month.",
+        "The archive selection is clearly visible to the user (e.g., shows selected month/year) and can be reset back to the current month view.",
+        "No backend changes are required to filter; filtering is performed client-side on the already-fetched transactions."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "modify",
+          "description": "Add and manage Overview ‘Archive’ month state (defaulting to current month), render an Archive month+year selector UI within the Overview tab, show the currently active month filter label, and provide a reset-to-current-month action. Wire this selection into Overview tile drill-down behavior (e.g., by passing props/state down to the overview tiles component or by storing a lightweight navigation parameter). Use shadcn-ui Popover/Calendar/Button/Select primitives as needed (compose only; do not modify files under frontend/src/components/ui). Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/BalanceCards.tsx",
+          "operation": "modify",
+          "description": "Update Overview tile click handling to include the active Overview month filter (current month by default, archive month when selected) when navigating/opening the tile’s transaction listing, so the listing can filter client-side accordingly. Ensure this applies to Cash In, UPI In, Cash Out, UPI Out, and other relevant tiles. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/TransactionHistory.tsx",
+          "operation": "modify",
+          "description": "Add support for an optional month+year filter when the transaction listing is opened from Overview tiles, defaulting to current month when the source is Overview and no archive override is provided. Implement the filter purely client-side over already-fetched transactions and ensure it does not affect unrelated views/tabs. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/utils/urlParams.ts",
+          "operation": "modify",
+          "description": "Extend existing URL/session param helpers to support passing and reading an optional Overview month+year filter (and an explicit reset/clear path), used only to wire Overview tile navigation to the transaction listing filter without backend changes."
         }
       ]
     }

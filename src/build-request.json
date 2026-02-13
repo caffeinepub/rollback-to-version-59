@@ -1,55 +1,88 @@
 {
   "kind": "build_request",
-  "title": "Fix blank screen when clicking the Monthly tab",
-  "priority": "high",
+  "title": "Restore date picker styling, add year-wise Monthly view, and add Overview month filter with Archive",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
+      "text": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "recent-messages-6"
+          "msg-10"
         ],
         "quotes": [
-          "As soon as \"monthly\" tab is clicked screen is going blank , fix this"
+          "In \"filter \" and \"daywise\" tab give some style to date picker , it has gone to default."
         ]
       },
       "acceptanceCriteria": [
-        "Clicking the \"Monthly\" tab no longer results in a blank screen.",
-        "The Monthly Transactions view renders successfully on first load (even with no transactions).",
-        "No uncaught exceptions are thrown in the browser console when switching to the Monthly tab."
+        "In the Filter tab, the calendar popover uses the custom styled calendar appearance (not the default unstyled calendar).",
+        "In the Daywise tab, the calendar popover uses the same custom styled calendar appearance.",
+        "No functional regressions: selecting a date (or start/end date range) still updates the results as before."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+      "text": "In the Monthly tab, add an option to view transactions year-wise in addition to the existing month-wise view.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "recent-messages-6"
+          "msg-10"
         ],
         "quotes": [
-          "As soon as \"monthly\" tab is clicked screen is going blank , fix this"
+          "In \"monthly\" tab give an option to view the transactions year wise also."
         ]
       },
       "acceptanceCriteria": [
-        "Typing into the Monthly search box does not crash the page even if some transactions have empty/undefined descriptions.",
-        "Filtering by each transaction type option (and derived row types) does not crash the page and produces a stable rendered table state.",
-        "When an unexpected/unknown transaction type is encountered, the UI displays a reasonable fallback label (e.g., \"Unknown\") and continues rendering."
+        "Monthly tab includes a clear control to switch between 'Month' view and 'Year' view (English labels).",
+        "In 'Year' view, the user can select a year and see transactions limited to that year.",
+        "Type filtering and search continue to work in Year view (or are clearly disabled with an explanation if not supported); the UI must not show incorrect mixed-year results.",
+        "Switching between Month and Year view does not break the existing month picker behavior."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "In the Overview tab, ensure the transaction listings opened from the 'Cash In', 'UPI In', 'Cash Out', 'UPI Out', and other relevant overview tiles show transactions for the current month only by default, and add an 'Archive' option that lets the user choose a specific month to view older transactions for those tiles.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-10"
+        ],
+        "quotes": [
+          "In \"Cash in\" \"upi in\" \"cash out\" \"upi out\" and other relevant tiles in \"overview\" tab , make the transactions visible for the  current month only and make an option for an \"archive\" box to look for old cash ins cash outs etc. for a given month."
+        ]
+      },
+      "acceptanceCriteria": [
+        "From Overview, opening a tile’s transactions (e.g., Cash In) shows only the current month’s transactions by default.",
+        "Overview includes an 'Archive' UI control (English text) that allows selecting a month (month + year).",
+        "When an Archive month is selected, opening any relevant Overview tile shows transactions filtered to the selected month instead of the current month.",
+        "The archive selection is clearly visible to the user (e.g., shows selected month/year) and can be reset back to the current month view.",
+        "No backend changes are required to filter; filtering is performed client-side on the already-fetched transactions."
       ]
     }
   ],
   "constraints": [
-    "Do not modify any files under frontend/src/components/ui (Shadcn UI components are read-only).",
-    "Do not modify files listed in frontend.immutablePaths (compose around them instead)."
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useInternetIdentity.tsx, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or anything in frontend/src/components/ui (compose them instead).",
+    "Backend must remain single-actor (backend/main.mo). Add backend migration (backend/migration.mo) only if persistent state schema changes, which is not required for these UI filtering/view changes.",
+    "Use English for all new/updated user-facing text."
   ],
   "nonGoals": [
-    "No backend/canister logic changes are required unless the frontend fix definitively depends on backend type/schema changes.",
-    "No new features beyond fixing the Monthly tab blank-screen bug and making the view resilient to bad/partial data."
+    "Do not introduce new authentication methods (Internet Identity remains the only supported auth).",
+    "Do not add external databases or backend search/filter endpoints; implement the requested month/year filtering in the frontend using existing getAllTransactions data.",
+    "Do not redesign unrelated tabs or alter transaction business logic beyond the requested time-period filtering and UI improvements."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }

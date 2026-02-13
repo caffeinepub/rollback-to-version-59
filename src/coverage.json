@@ -1,18 +1,31 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-12T10:37:04.017Z",
+  "generatedAt": "2026-02-13T17:44:21.871Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 2,
+    "total": 3,
+    "implemented": 3,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
+        "summary": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/FilterTransactions.tsx",
+          "frontend/src/components/DaywiseTransactions.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/FilterTransactions.tsx",
+          "frontend/src/components/DaywiseTransactions.tsx"
+        ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "In the Monthly tab, add an option to view transactions year-wise in addition to the existing month-wise view.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/components/MonthlyTransactions.tsx"
@@ -22,14 +35,19 @@
         ]
       },
       {
-        "id": "REQ-2",
-        "summary": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+        "id": "REQ-3",
+        "summary": "In the Overview tab, ensure the transaction listings opened from the 'Cash In', 'UPI In', 'Cash Out', 'UPI Out', and other relevant overview tiles show transactions for the current month only by default, and add an 'Archive' option that lets the user choose a specific month to view older transactions for those tiles.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/MonthlyTransactions.tsx"
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/components/BalanceCards.tsx",
+          "frontend/src/components/TransactionHistory.tsx",
+          "frontend/src/utils/urlParams.ts"
         ],
         "matchedFiles": [
-          "frontend/src/components/MonthlyTransactions.tsx"
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/components/BalanceCards.tsx",
+          "frontend/src/components/TransactionHistory.tsx"
         ]
       }
     ]
@@ -39,7 +57,13 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
+    "frontend/src/components/BalanceCards.tsx",
+    "frontend/src/components/DaywiseTransactions.tsx",
+    "frontend/src/components/FilterTransactions.tsx",
     "frontend/src/components/MonthlyTransactions.tsx",
+    "frontend/src/components/TransactionHistory.tsx",
+    "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/utils/derivedTransactions.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

@@ -1,10 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the runtime error that causes a blank screen when clicking the “Monthly” tab, and make the Monthly Transactions view resilient to common bad/partial data shapes.
+**Goal:** Restore the app’s custom date-picker styling and improve month/year-based transaction viewing and filtering in Monthly and Overview tabs.
 
 **Planned changes:**
-- Identify and fix the frontend runtime exception triggered when opening the Dashboard “Monthly” tab so the view renders reliably on first load.
-- Add defensive handling in the Monthly Transactions UI for missing/empty description values, unexpected/unknown transactionType values, and other common data-shape issues during search/filtering to prevent crashes and provide safe fallback labels.
+- Re-apply the existing modern (non-default) calendar/date-picker styling to the date picker UI used in the Filter and Daywise tabs.
+- In the Monthly tab, add a control to switch between Month view and Year view, with year selection and correct year-scoped transaction display.
+- In the Overview tab, default tile drilldowns (e.g., Cash In/UPI In/Cash Out/UPI Out) to showing only the current month’s transactions, and add an Archive month (month+year) selector to view older months with a clear reset back to current month.
+- Ensure all new/updated user-facing text is in English and that filtering is done client-side using already-fetched transactions.
 
-**User-visible outcome:** Clicking the “Monthly” tab reliably shows the Monthly Transactions view (even with no transactions), and searching/filtering no longer causes the page to go blank or throw console errors when transaction data is incomplete or unexpected.
+**User-visible outcome:** Date pickers in Filter and Daywise look styled again (not default), Monthly can be viewed by month or by year, and Overview tile transactions show the current month by default with an Archive option to browse a selected past month.

@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon, Archive } from 'lucide-react';
+import { format } from 'date-fns';
 import BalanceCards from '../components/BalanceCards';
 import TransactionForm from '../components/TransactionForm';
 import TransactionHistory from '../components/TransactionHistory';
@@ -7,111 +14,187 @@ import FilterTransactions from '../components/FilterTransactions';
 import DaywiseTransactions from '../components/DaywiseTransactions';
 import MonthlyTransactions from '../components/MonthlyTransactions';
 import OpeningBalancesForm from '../components/OpeningBalancesForm';
+import { TransactionType } from '../backend';
+import { storeSessionParameter, getSessionParameter, clearSessionParameter } from '../utils/urlParams';
 
 export default function Dashboard() {
+  const [preselectedType, setPreselectedType] = useState<string | undefined>(undefined);
+  const [formKey, setFormKey] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
-  const [preselectedTransactionType, setPreselectedTransactionType] = useState<string | undefined>(undefined);
+  
+  // Archive month state for Overview tab
+  const currentDate = new Date();
+  const [archiveMonth, setArchiveMonth] = useState<Date>(currentDate);
+  const [isArchiveCalendarOpen, setIsArchiveCalendarOpen] = useState(false);
+  const [isArchiveMode, setIsArchiveMode] = useState(false);
 
-  const handleNavigateToAddTransaction = (transactionType?: string) => {
-    // Set preselected type immediately for instant synchronization
-    setPreselectedTransactionType(transactionType);
-    // Switch to add transaction tab instantly
-    setActiveTab('add');
+  const handleTileClick = (type: TransactionType) => {
+    // Convert TransactionType enum to string for TransactionForm
+    setPreselectedType(type as string);
+    setFormKey((prev) => prev + 1);
+    setActiveTab('add-transaction');
+    
+    // Store archive month if in archive mode
+    if (isArchiveMode) {
+      const year = archiveMonth.getFullYear();
+      const month = archiveMonth.getMonth() + 1;
+      storeSessionParameter('overviewArchiveYear', year.toString());
+      storeSessionParameter('overviewArchiveMonth', month.toString());
+    } else {
+      clearSessionParameter('overviewArchiveYear');
+      clearSessionParameter('overviewArchiveMonth');
+    }
   };
 
-  // Clear preselected type when switching away from add tab
-  useEffect(() => {
-    if (activeTab !== 'add') {
-      setPreselectedTransactionType(undefined);
+  const handleResetArchive = () => {
+    setArchiveMonth(currentDate);
+    setIsArchiveMode(false);
+    clearSessionParameter('overviewArchiveYear');
+    clearSessionParameter('overviewArchiveMonth');
+  };
+
+  const handleArchiveMonthSelect = (date: Date | undefined) => {
+    if (date) {
+      setArchiveMonth(date);
+      setIsArchiveMode(true);
+      setIsArchiveCalendarOpen(false);
     }
-  }, [activeTab]);
+  };
+
+  const isCurrentMonth = 
+    archiveMonth.getFullYear() === currentDate.getFullYear() &&
+    archiveMonth.getMonth() === currentDate.getMonth();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-teal-50">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Enhanced two-row layout with improved spacing, visibility, and non-overlapping tabs */}
-          <div className="mb-8 bg-white shadow-xl rounded-2xl p-6 border-2 border-gray-200">
-            {/* First Row - Overview, Add Transaction, History */}
-            <TabsList className="grid w-full grid-cols-3 mb-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 shadow-inner gap-3">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-blue-50 to-amber-50">
+      <main className="container mx-auto px-4 py-8 max-w-7xl">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-xl p-2 border-2 border-gray-200">
+            <TabsList className="grid w-full grid-cols-3 gap-2 bg-transparent p-0 h-auto">
               <TabsTrigger
                 value="overview"
-                className="rounded-xl font-black text-base sm:text-lg md:text-xl text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-blue-500 data-[state=active]:text-white transition-all duration-300 data-[state=active]:shadow-lg py-4 px-3 hover:bg-gray-100"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl py-3 px-4 font-bold text-gray-700 hover:bg-gray-100 transition-all"
               >
                 Overview
               </TabsTrigger>
               <TabsTrigger
-                value="add"
-                className="rounded-xl font-black text-base sm:text-lg md:text-xl text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 data-[state=active]:shadow-lg py-4 px-3 hover:bg-gray-100"
+                value="add-transaction"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl py-3 px-4 font-bold text-gray-700 hover:bg-gray-100 transition-all"
               >
                 Add Transaction
               </TabsTrigger>
               <TabsTrigger
                 value="history"
-                className="rounded-xl font-black text-base sm:text-lg md:text-xl text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white transition-all duration-300 data-[state=active]:shadow-lg py-4 px-3 hover:bg-gray-100"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl py-3 px-4 font-bold text-gray-700 hover:bg-gray-100 transition-all"
               >
                 History
               </TabsTrigger>
             </TabsList>
 
-            {/* Second Row - Filter, Day-wise Transactions, Monthly Transactions */}
-            <TabsList className="grid w-full grid-cols-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 shadow-inner gap-3">
-              <TabsTrigger
-                value="filter"
-                className="rounded-xl font-black text-base sm:text-lg md:text-xl text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 data-[state=active]:shadow-lg py-4 px-3 hover:bg-gray-100"
-              >
-                Filter
-              </TabsTrigger>
-              <TabsTrigger
-                value="daywise"
-                className="rounded-xl font-black text-base sm:text-lg md:text-xl text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-500 data-[state=active]:to-fuchsia-500 data-[state=active]:text-white transition-all duration-300 data-[state=active]:shadow-lg py-4 px-3 hover:bg-gray-100"
-              >
-                Day-wise
-              </TabsTrigger>
-              <TabsTrigger
-                value="monthly"
-                className="rounded-xl font-black text-base sm:text-lg md:text-xl text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 data-[state=active]:shadow-lg py-4 px-3 hover:bg-gray-100"
-              >
-                Monthly
-              </TabsTrigger>
-            </TabsList>
+            <div className="mt-4">
+              <TabsList className="grid w-full grid-cols-3 gap-2 bg-transparent p-0 h-auto">
+                <TabsTrigger
+                  value="filter"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl py-3 px-4 font-bold text-gray-700 hover:bg-gray-100 transition-all"
+                >
+                  Filter
+                </TabsTrigger>
+                <TabsTrigger
+                  value="daywise"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl py-3 px-4 font-bold text-gray-700 hover:bg-gray-100 transition-all"
+                >
+                  Daywise
+                </TabsTrigger>
+                <TabsTrigger
+                  value="monthly"
+                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-lg rounded-xl py-3 px-4 font-bold text-gray-700 hover:bg-gray-100 transition-all"
+                >
+                  Monthly
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </div>
 
-          <TabsContent value="overview" className="mt-0">
-            <BalanceCards onNavigateToAddTransaction={handleNavigateToAddTransaction} />
+          <TabsContent value="overview" className="space-y-6">
+            <Card className="bg-white border-2 border-gray-200 shadow-xl">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Archive className="h-5 w-5 text-blue-600" />
+                    <Label className="text-gray-900 font-bold text-lg">
+                      Archive
+                    </Label>
+                  </div>
+                  {isArchiveMode && !isCurrentMonth && (
+                    <Button
+                      onClick={handleResetArchive}
+                      variant="outline"
+                      size="sm"
+                      className="bg-white hover:bg-gray-100 text-gray-900 font-bold border-2 border-gray-300"
+                    >
+                      Reset to Current Month
+                    </Button>
+                  )}
+                </div>
+                <div className="flex items-center gap-4">
+                  <Popover open={isArchiveCalendarOpen} onOpenChange={setIsArchiveCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full md:w-auto justify-start text-left font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
+                        {isArchiveMode && !isCurrentMonth
+                          ? `Archive: ${format(archiveMonth, 'MMMM yyyy')}`
+                          : `Current Month: ${format(currentDate, 'MMMM yyyy')}`}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={archiveMonth}
+                        onSelect={handleArchiveMonthSelect}
+                        initialFocus
+                        className="modern-calendar"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  {isArchiveMode && !isCurrentMonth && (
+                    <div className="text-sm font-semibold text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-300">
+                      Viewing archived month
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            <BalanceCards onTileClick={handleTileClick} />
           </TabsContent>
 
-          <TabsContent value="add" className="mt-0">
-            <TransactionForm 
-              preselectedType={preselectedTransactionType}
-              key={preselectedTransactionType || 'default'}
-            />
+          <TabsContent value="add-transaction">
+            <TransactionForm key={formKey} preselectedType={preselectedType} />
           </TabsContent>
 
-          <TabsContent value="history" className="mt-0">
+          <TabsContent value="history">
             <TransactionHistory />
           </TabsContent>
 
-          <TabsContent value="filter" className="mt-0">
+          <TabsContent value="filter">
             <FilterTransactions />
           </TabsContent>
 
-          <TabsContent value="daywise" className="mt-0">
+          <TabsContent value="daywise">
             <DaywiseTransactions />
           </TabsContent>
 
-          <TabsContent value="monthly" className="mt-0">
+          <TabsContent value="monthly">
             <MonthlyTransactions />
           </TabsContent>
         </Tabs>
 
-        {/* Bottom Section - Opening Balances only */}
         <div className="mt-8">
-          <div className="bg-white rounded-2xl shadow-xl border-2 border-gray-200 p-6 max-w-3xl mx-auto">
-            <OpeningBalancesForm />
-          </div>
+          <OpeningBalancesForm />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

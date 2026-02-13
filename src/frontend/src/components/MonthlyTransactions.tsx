@@ -1,20 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useGetAllTransactions } from '../hooks/useQueries';
-import { TransactionType, Transaction } from '../backend';
+import { Transaction, TransactionType } from '../backend';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Calendar as CalendarIconLucide, FileDown, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -25,19 +17,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getDerivedRowsForMonth, isDerivedRow, isRealTransaction } from '../utils/derivedTransactions';
-import type { DerivedTransactionRow, DisplayTransaction } from '../utils/derivedTransactions';
+import { format } from 'date-fns';
+import { getDerivedRowsForMonth, getDerivedRowsForYear } from '../utils/derivedTransactions';
+import type { DerivedTransactionRow } from '../utils/derivedTransactions';
 import { getAmountColorFromType, getDerivedRowAmountColor } from '../utils/transactionDirection';
 
-// Extended type for the selector (backend types + derived types)
-type MonthlyTransactionTypeSelector = TransactionType | 'cheetiDeduction' | 'savings10Percent' | 'all';
+type ViewMode = 'month' | 'year';
 
 export default function MonthlyTransactions() {
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [selectedType, setSelectedType] = useState<MonthlyTransactionTypeSelector>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-  const [isTypeSelectOpen, setIsTypeSelectOpen] = useState(false);
+  const currentDate = new Date();
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const { data: transactions, isLoading, error } = useGetAllTransactions();
 
@@ -49,287 +42,141 @@ export default function MonthlyTransactions() {
     }).format(Number(amount));
   };
 
-  const getTransactionTypeLabel = (type: TransactionType) => {
-    switch (type) {
-      case TransactionType.cashIn:
-        return 'Cash In';
-      case TransactionType.cashOut:
-        return 'Cash Out';
-      case TransactionType.upiIn:
-        return 'UPI In';
-      case TransactionType.upiOut:
-        return 'UPI Out';
-      case TransactionType.savingsOut:
-        return 'Savings (10%) Out';
-      case TransactionType.deductionsOut:
-        return 'Deductions Out';
-      default:
-        return 'Unknown';
-    }
-  };
+  const months = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' },
+  ];
 
-  // Filter and merge transactions with derived rows
+  const years = Array.from({ length: 10 }, (_, i) => currentDate.getFullYear() - i);
+
+  const typeOptions = [
+    { value: 'all', label: 'All Types' },
+    { value: TransactionType.cashIn, label: 'Cash In' },
+    { value: TransactionType.cashOut, label: 'Cash Out' },
+    { value: TransactionType.upiIn, label: 'UPI In' },
+    { value: TransactionType.upiOut, label: 'UPI Out' },
+    { value: TransactionType.savingsOut, label: 'Savings (10%) Out' },
+    { value: TransactionType.deductionsOut, label: 'Deductions Out' },
+  ];
+
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
 
-    const year = selectedMonth.getFullYear();
-    const month = selectedMonth.getMonth();
-
-    // Filter real transactions by month
-    const monthTransactions = transactions.filter((txn) => {
+    let filtered = transactions.filter((txn) => {
       const txnDate = new Date(Number(txn.date) / 1_000_000);
-      return txnDate.getFullYear() === year && txnDate.getMonth() === month;
+      const txnYear = txnDate.getFullYear();
+      const txnMonth = txnDate.getMonth() + 1;
+
+      if (viewMode === 'month') {
+        return txnYear === selectedYear && txnMonth === selectedMonth;
+      } else {
+        return txnYear === selectedYear;
+      }
     });
 
-    // Get derived rows for the month
-    const derivedRows = getDerivedRowsForMonth(year, month);
-
-    // Merge real transactions and derived rows
-    const allRows: DisplayTransaction[] = [...monthTransactions, ...derivedRows];
-
-    // Apply type filter
-    let typeFiltered = allRows;
-    if (selectedType && selectedType !== 'all') {
-      if (selectedType === 'cheetiDeduction') {
-        typeFiltered = allRows.filter(
-          (row) => isDerivedRow(row) && row.derivedType === 'Cheeti Deduction'
-        );
-      } else if (selectedType === 'savings10Percent') {
-        typeFiltered = allRows.filter(
-          (row) => isDerivedRow(row) && row.derivedType === '10% Savings'
-        );
-      } else {
-        typeFiltered = allRows.filter(
-          (row) => isRealTransaction(row) && row.transactionType === selectedType
-        );
-      }
+    if (selectedType !== 'all') {
+      filtered = filtered.filter((txn) => txn.transactionType === selectedType);
     }
 
-    // Apply search filter with safe string handling
-    const searchFiltered = typeFiltered.filter((row) => {
-      if (!searchQuery.trim()) return true;
-      
+    if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
-      
-      if (isRealTransaction(row)) {
-        const description = (row.description ?? '').toLowerCase();
-        return description.includes(query);
-      } else if (isDerivedRow(row)) {
-        const derivedType = (row.derivedType ?? '').toLowerCase();
-        return derivedType.includes(query);
-      }
-      return false;
+      filtered = filtered.filter((txn) => {
+        const description = String(txn.description || '').toLowerCase();
+        const amount = String(txn.amount || '').toLowerCase();
+        return description.includes(query) || amount.includes(query);
+      });
+    }
+
+    return filtered.sort((a, b) => Number(b.date) - Number(a.date));
+  }, [transactions, viewMode, selectedYear, selectedMonth, selectedType, searchQuery]);
+
+  const derivedRows = useMemo(() => {
+    if (viewMode === 'month') {
+      return getDerivedRowsForMonth(selectedYear, selectedMonth);
+    } else {
+      return getDerivedRowsForYear(selectedYear);
+    }
+  }, [viewMode, selectedYear, selectedMonth]);
+
+  type MergedRow = { type: 'real'; data: Transaction } | { type: 'derived'; data: DerivedTransactionRow };
+  const mergedTransactions: MergedRow[] = useMemo(() => {
+    const merged: MergedRow[] = [
+      ...filteredTransactions.map((txn) => ({ type: 'real' as const, data: txn })),
+      ...derivedRows.map((row) => ({ type: 'derived' as const, data: row })),
+    ];
+
+    merged.sort((a, b) => {
+      const dateA = a.type === 'real' ? a.data.date : a.data.date;
+      const dateB = b.type === 'real' ? b.data.date : b.data.date;
+      return Number(dateB) - Number(dateA);
     });
 
-    // Sort by date descending
-    return searchFiltered.sort((a, b) => Number(b.date) - Number(a.date));
-  }, [transactions, selectedMonth, selectedType, searchQuery]);
+    return merged;
+  }, [filteredTransactions, derivedRows]);
 
   const totalAmount = useMemo(() => {
-    return filteredTransactions.reduce((sum, row) => {
-      return sum + Number(row.amount);
-    }, 0);
+    return filteredTransactions.reduce((sum, txn) => sum + txn.amount, 0n);
   }, [filteredTransactions]);
 
-  const handleGeneratePDF = () => {
-    const monthName = format(selectedMonth, 'MMMM yyyy');
-    const typeLabel = selectedType === 'all'
-      ? 'All Types'
-      : selectedType === 'cheetiDeduction'
-      ? 'Cheeti Deduction'
-      : selectedType === 'savings10Percent'
-      ? '10% Savings'
-      : getTransactionTypeLabel(selectedType as TransactionType);
+  const generatePDF = () => {
+    const periodLabel = viewMode === 'month' 
+      ? `${months.find((m) => m.value === selectedMonth)?.label} ${selectedYear}`
+      : `Year ${selectedYear}`;
+    
+    let content = `Monthly Transactions Report\nPeriod: ${periodLabel}\n`;
+    content += `Type: ${typeOptions.find((t) => t.value === selectedType)?.label}\n\n`;
+    content += `Total Amount: ${formatAmount(totalAmount)}\n`;
+    content += `Transaction Count: ${filteredTransactions.length}\n\n`;
+    content += `Transactions:\n`;
 
-    let htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Monthly Transactions - ${monthName}</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            color: #333;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #4F46E5;
-          }
-          .header h1 {
-            color: #4F46E5;
-            margin: 0;
-            font-size: 28px;
-          }
-          .header h2 {
-            color: #6B7280;
-            margin: 10px 0 0 0;
-            font-size: 18px;
-            font-weight: normal;
-          }
-          .info {
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #F3F4F6;
-            border-radius: 8px;
-          }
-          .info p {
-            margin: 5px 0;
-            font-size: 14px;
-          }
-          .info strong {
-            color: #1F2937;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-          }
-          th {
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: bold;
-            font-size: 14px;
-          }
-          td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #E5E7EB;
-            font-size: 13px;
-          }
-          tr:nth-child(even) {
-            background-color: #F9FAFB;
-          }
-          tr:hover {
-            background-color: #F3F4F6;
-          }
-          .amount-incoming {
-            color: #059669;
-            font-weight: bold;
-          }
-          .amount-outgoing {
-            color: #DC2626;
-            font-weight: bold;
-          }
-          .derived-row {
-            background-color: #FEF3C7;
-            font-style: italic;
-          }
-          .total {
-            margin-top: 20px;
-            padding: 15px;
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
-            color: white;
-            border-radius: 8px;
-            text-align: right;
-            font-size: 18px;
-            font-weight: bold;
-          }
-          .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #E5E7EB;
-            text-align: center;
-            color: #6B7280;
-            font-size: 12px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>APJ ENTERPRISES</h1>
-          <h2>Monthly Transaction Report</h2>
-        </div>
-        <div class="info">
-          <p><strong>Month:</strong> ${monthName}</p>
-          <p><strong>Transaction Type:</strong> ${typeLabel}</p>
-          ${searchQuery ? `<p><strong>Search Filter:</strong> "${searchQuery}"</p>` : ''}
-          <p><strong>Total Transactions:</strong> ${filteredTransactions.length}</p>
-          <p><strong>Generated:</strong> ${format(new Date(), 'PPP p')}</p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th style="text-align: right;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-
-    filteredTransactions.forEach((row) => {
-      const dateStr = format(new Date(Number(row.date) / 1_000_000), 'dd/MM/yyyy');
-      
-      if (isDerivedRow(row)) {
-        const amountStr = formatAmount(row.amount);
-        htmlContent += `
-          <tr class="derived-row">
-            <td>${dateStr}</td>
-            <td>${row.derivedType ?? 'Deduction'}</td>
-            <td><em>Auto-calculated deduction</em></td>
-            <td style="text-align: right;" class="amount-outgoing">${amountStr}</td>
-          </tr>
-        `;
-      } else if (isRealTransaction(row)) {
-        const typeLabel = getTransactionTypeLabel(row.transactionType);
-        const description = row.description || '-';
-        const amountStr = formatAmount(row.amount);
-        const amountClass = getAmountColorFromType(row.transactionType) === 'text-green-600' 
-          ? 'amount-incoming' 
-          : 'amount-outgoing';
-        
-        htmlContent += `
-          <tr>
-            <td>${dateStr}</td>
-            <td>${typeLabel}</td>
-            <td>${description}</td>
-            <td style="text-align: right;" class="${amountClass}">${amountStr}</td>
-          </tr>
-        `;
+    mergedTransactions.forEach((row) => {
+      if (row.type === 'real') {
+        const txn = row.data;
+        const typeMap: Record<TransactionType, string> = {
+          [TransactionType.cashIn]: 'Cash In',
+          [TransactionType.cashOut]: 'Cash Out',
+          [TransactionType.upiIn]: 'UPI In',
+          [TransactionType.upiOut]: 'UPI Out',
+          [TransactionType.savingsOut]: 'Savings (10%) Out',
+          [TransactionType.deductionsOut]: 'Deductions Out',
+        };
+        const dateStr = format(new Date(Number(txn.date) / 1_000_000), 'dd/MM/yyyy');
+        content += `${dateStr} - ${typeMap[txn.transactionType]}: ${formatAmount(txn.amount)} - ${txn.description}\n`;
+      } else {
+        const derived = row.data;
+        const dateStr = format(new Date(Number(derived.date) / 1_000_000), 'dd/MM/yyyy');
+        content += `${dateStr} - ${derived.derivedType}: ${formatAmount(derived.amount)}\n`;
       }
     });
 
-    htmlContent += `
-          </tbody>
-        </table>
-        <div class="total">
-          Total Amount: ${formatAmount(BigInt(totalAmount))}
-        </div>
-        <div class="footer">
-          <p>This report was generated automatically by APJ ENTERPRISES Transaction Management System</p>
-          <p>For any queries, please contact your administrator</p>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `monthly-transactions-${format(selectedMonth, 'yyyy-MM')}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `monthly-report-${selectedYear}-${viewMode === 'month' ? selectedMonth : 'full'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
   if (isLoading) {
     return (
       <Card className="bg-white border border-gray-200 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-t-2xl border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <CalendarIconLucide className="h-5 w-5 text-white" />
-            <CardTitle className="text-white font-bold">Monthly Transactions</CardTitle>
-          </div>
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
+          <CardTitle className="text-white font-bold">Monthly Transactions</CardTitle>
           <CardDescription className="text-white font-semibold">
-            View transactions by month and type
+            View transactions by month or year
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
@@ -346,19 +193,16 @@ export default function MonthlyTransactions() {
   if (error) {
     return (
       <Card className="bg-white border border-gray-200 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-t-2xl border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <CalendarIconLucide className="h-5 w-5 text-white" />
-            <CardTitle className="text-white font-bold">Monthly Transactions</CardTitle>
-          </div>
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
+          <CardTitle className="text-white font-bold">Monthly Transactions</CardTitle>
           <CardDescription className="text-white font-semibold">
-            View transactions by month and type
+            View transactions by month or year
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <Alert variant="destructive" className="bg-red-50 border-red-200">
             <AlertDescription className="text-red-800">
-              Failed to load transactions. Please try again.
+              Failed to load monthly transactions. Please try again.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -368,235 +212,212 @@ export default function MonthlyTransactions() {
 
   return (
     <Card className="bg-white border border-gray-200 shadow-xl">
-      <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-t-2xl border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <CalendarIconLucide className="h-5 w-5 text-white" />
-          <CardTitle className="text-white font-bold">Monthly Transactions</CardTitle>
+      <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-white font-bold">Monthly Transactions</CardTitle>
+            <CardDescription className="text-white font-semibold">
+              View transactions by month or year
+            </CardDescription>
+          </div>
+          <Button
+            onClick={generatePDF}
+            variant="outline"
+            size="sm"
+            className="bg-white hover:bg-gray-100 text-gray-900 font-bold border-2 border-white"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Report
+          </Button>
         </div>
-        <CardDescription className="text-white font-semibold">
-          View transactions by month and type
-        </CardDescription>
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="month-picker" className="text-gray-900 font-bold">
-              Select Month
+            <Label htmlFor="view-mode" className="text-gray-900 font-bold">
+              View Mode
             </Label>
-            <Popover open={isMonthPickerOpen} onOpenChange={setIsMonthPickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  id="month-picker"
-                  variant="outline"
-                  className="w-full justify-start text-left font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
-                  {format(selectedMonth, 'MMMM yyyy')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="start">
-                <div className="p-4 space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const monthDate = new Date(selectedMonth.getFullYear(), i, 1);
-                      const isSelected = selectedMonth.getMonth() === i;
-                      return (
-                        <Button
-                          key={i}
-                          variant={isSelected ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            setSelectedMonth(monthDate);
-                            setIsMonthPickerOpen(false);
-                          }}
-                          className={
-                            isSelected
-                              ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold shadow-md'
-                              : 'border-2 border-gray-300 bg-white hover:bg-gray-100 text-black font-semibold'
-                          }
-                        >
-                          {format(monthDate, 'MMM')}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t border-gray-200">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedMonth(new Date(selectedMonth.getFullYear() - 1, selectedMonth.getMonth(), 1));
-                      }}
-                      className="flex-1 border-2 border-gray-300 bg-white hover:bg-gray-100 text-black font-semibold"
-                    >
-                      {selectedMonth.getFullYear() - 1}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedMonth(new Date(selectedMonth.getFullYear() + 1, selectedMonth.getMonth(), 1));
-                      }}
-                      className="flex-1 border-2 border-gray-300 bg-white hover:bg-gray-100 text-black font-semibold"
-                    >
-                      {selectedMonth.getFullYear() + 1}
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+              <SelectTrigger
+                id="view-mode"
+                className="w-full border-2 border-gray-300 bg-white text-black font-bold rounded-lg shadow-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-2 border-gray-300 shadow-xl">
+                <SelectItem value="month" className="font-semibold text-gray-900">
+                  Month View
+                </SelectItem>
+                <SelectItem value="year" className="font-semibold text-gray-900">
+                  Year View
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="type-select" className="text-gray-900 font-bold">
-              Transaction Type
+            <Label htmlFor="year-select" className="text-gray-900 font-bold">
+              Year
             </Label>
-            <Select
-              value={selectedType}
-              onValueChange={(value) => {
-                setSelectedType(value as MonthlyTransactionTypeSelector);
-                setIsTypeSelectOpen(false);
-              }}
-              open={isTypeSelectOpen}
-              onOpenChange={setIsTypeSelectOpen}
-            >
+            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
               <SelectTrigger
-                id="type-select"
-                className="w-full border-2 border-gray-300 bg-white hover:bg-gray-50 text-black font-semibold rounded-lg shadow-sm"
+                id="year-select"
+                className="w-full border-2 border-gray-300 bg-white text-black font-bold rounded-lg shadow-sm"
               >
-                <SelectValue placeholder="All Types" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-white border-2 border-gray-300 shadow-xl">
-                <SelectItem value="all" className="font-semibold text-black hover:bg-gray-100">
-                  All Types
-                </SelectItem>
-                <SelectItem value={TransactionType.cashIn} className="font-semibold text-black hover:bg-gray-100">
-                  Cash In
-                </SelectItem>
-                <SelectItem value={TransactionType.cashOut} className="font-semibold text-black hover:bg-gray-100">
-                  Cash Out
-                </SelectItem>
-                <SelectItem value={TransactionType.upiIn} className="font-semibold text-black hover:bg-gray-100">
-                  UPI In
-                </SelectItem>
-                <SelectItem value={TransactionType.upiOut} className="font-semibold text-black hover:bg-gray-100">
-                  UPI Out
-                </SelectItem>
-                <SelectItem value={TransactionType.savingsOut} className="font-semibold text-black hover:bg-gray-100">
-                  Savings (10%) Out
-                </SelectItem>
-                <SelectItem value={TransactionType.deductionsOut} className="font-semibold text-black hover:bg-gray-100">
-                  Deductions Out
-                </SelectItem>
-                <SelectItem value="savings10Percent" className="font-semibold text-black hover:bg-gray-100">
-                  10% Savings (Derived)
-                </SelectItem>
-                <SelectItem value="cheetiDeduction" className="font-semibold text-black hover:bg-gray-100">
-                  Cheeti Deduction (Derived)
-                </SelectItem>
+                {years.map((year) => (
+                  <SelectItem key={year} value={year.toString()} className="font-semibold text-gray-900">
+                    {year}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="search" className="text-gray-900 font-bold">
-            Search Description
-          </Label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+        {viewMode === 'month' && (
+          <div className="space-y-2">
+            <Label htmlFor="month-select" className="text-gray-900 font-bold">
+              Month
+            </Label>
+            <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+              <SelectTrigger
+                id="month-select"
+                className="w-full border-2 border-gray-300 bg-white text-black font-bold rounded-lg shadow-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-2 border-gray-300 shadow-xl">
+                {months.map((month) => (
+                  <SelectItem key={month.value} value={month.value.toString()} className="font-semibold text-gray-900">
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="type-select" className="text-gray-900 font-bold">
+              Transaction Type
+            </Label>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger
+                id="type-select"
+                className="monthly-transaction-type-trigger w-full border-2 border-gray-300 bg-white text-black font-bold rounded-lg shadow-sm"
+              >
+                <SelectValue className="monthly-transaction-type-value" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-2 border-gray-300 shadow-xl">
+                {typeOptions.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="monthly-type-item font-semibold text-gray-900"
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="search" className="text-gray-900 font-bold">
+              Search
+            </Label>
             <Input
               id="search"
               type="text"
-              placeholder="Search by description..."
+              placeholder="Search by description or amount..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 border-2 border-gray-300 bg-white text-black font-semibold rounded-lg shadow-sm"
+              className="border-2 border-gray-300 bg-white text-black font-semibold rounded-lg shadow-sm"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            <span className="font-bold text-gray-900">
-              {filteredTransactions.length}
-            </span>{' '}
-            transaction{filteredTransactions.length !== 1 ? 's' : ''} found
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">Total Amount</h3>
+            <p className="text-2xl font-black text-blue-600">{formatAmount(totalAmount)}</p>
           </div>
-          <Button
-            onClick={handleGeneratePDF}
-            disabled={filteredTransactions.length === 0}
-            className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold shadow-md"
-          >
-            <FileDown className="mr-2 h-4 w-4" />
-            Download Report
-          </Button>
+          <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-300 rounded-xl p-4 shadow-md">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">Transaction Count</h3>
+            <p className="text-2xl font-black text-teal-600">{filteredTransactions.length}</p>
+          </div>
         </div>
 
-        <div className="border-2 border-gray-300 rounded-lg overflow-hidden shadow-md">
-          <div className="max-h-[500px] overflow-y-auto">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-gradient-to-r from-purple-500 to-indigo-500">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-white font-bold">Date</TableHead>
-                  <TableHead className="text-white font-bold">Type</TableHead>
-                  <TableHead className="text-white font-bold">Description</TableHead>
-                  <TableHead className="text-right text-white font-bold">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTransactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
-                      No transactions found for the selected filters
-                    </TableCell>
+        {mergedTransactions.length > 0 && (
+          <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-md">
+            <div className="max-h-[500px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10">
+                  <TableRow className="bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-500 hover:to-blue-500">
+                    <TableHead className="text-white font-bold">Date</TableHead>
+                    <TableHead className="text-white font-bold">Type</TableHead>
+                    <TableHead className="text-right text-white font-bold">Amount</TableHead>
+                    <TableHead className="text-white font-bold">Description</TableHead>
                   </TableRow>
-                ) : (
-                  filteredTransactions.map((row, index) => {
-                    const dateStr = format(new Date(Number(row.date) / 1_000_000), 'dd/MM/yyyy');
-                    
-                    if (isDerivedRow(row)) {
+                </TableHeader>
+                <TableBody>
+                  {mergedTransactions.map((row, index) => {
+                    if (row.type === 'derived') {
+                      const derived = row.data;
+                      const rowKey = `derived-${derived.derivedType}-${derived.date.toString()}`;
                       return (
-                        <TableRow key={`derived-${index}`} className="bg-yellow-50 hover:bg-yellow-100">
-                          <TableCell className="font-medium text-gray-900">{dateStr}</TableCell>
-                          <TableCell className="font-semibold text-gray-900 italic">
-                            {row.derivedType ?? 'Deduction'}
+                        <TableRow key={rowKey} className="bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100">
+                          <TableCell className="font-semibold text-gray-900">
+                            {format(new Date(Number(derived.date) / 1_000_000), 'dd/MM/yyyy')}
                           </TableCell>
-                          <TableCell className="text-gray-600 italic">Auto-calculated deduction</TableCell>
-                          <TableCell className="text-right font-bold text-red-600">
-                            {formatAmount(row.amount)}
+                          <TableCell className="font-bold text-amber-700">{derived.derivedType}</TableCell>
+                          <TableCell className={`text-right font-bold ${getDerivedRowAmountColor()}`}>
+                            {formatAmount(derived.amount)}
                           </TableCell>
+                          <TableCell className="text-gray-600 italic">Auto-calculated</TableCell>
                         </TableRow>
                       );
-                    } else if (isRealTransaction(row)) {
-                      const typeLabel = getTransactionTypeLabel(row.transactionType);
-                      const amountColor = getAmountColorFromType(row.transactionType);
-                      
+                    } else {
+                      const txn = row.data;
+                      const typeMap: Record<TransactionType, string> = {
+                        [TransactionType.cashIn]: 'Cash In',
+                        [TransactionType.cashOut]: 'Cash Out',
+                        [TransactionType.upiIn]: 'UPI In',
+                        [TransactionType.upiOut]: 'UPI Out',
+                        [TransactionType.savingsOut]: 'Savings (10%) Out',
+                        [TransactionType.deductionsOut]: 'Deductions Out',
+                      };
+                      const rowKey = `real-${txn.id.toString()}`;
                       return (
-                        <TableRow key={`real-${row.id}`} className="hover:bg-gray-50">
-                          <TableCell className="font-medium text-gray-900">{dateStr}</TableCell>
-                          <TableCell className="font-semibold text-gray-900">{typeLabel}</TableCell>
-                          <TableCell className="text-gray-700">{row.description || '-'}</TableCell>
-                          <TableCell className={`text-right font-bold ${amountColor}`}>
-                            {formatAmount(row.amount)}
+                        <TableRow key={rowKey} className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50">
+                          <TableCell className="font-semibold text-gray-900">
+                            {format(new Date(Number(txn.date) / 1_000_000), 'dd/MM/yyyy')}
                           </TableCell>
+                          <TableCell className="font-semibold text-gray-900">{typeMap[txn.transactionType]}</TableCell>
+                          <TableCell className={`text-right font-bold ${getAmountColorFromType(txn.transactionType)}`}>
+                            {formatAmount(txn.amount)}
+                          </TableCell>
+                          <TableCell className="text-gray-700">{txn.description || '-'}</TableCell>
                         </TableRow>
                       );
                     }
-                    return null;
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-
-        {filteredTransactions.length > 0 && (
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-lg p-4 text-white">
-            <div className="flex justify-between items-center">
-              <span className="font-bold text-lg">Total Amount:</span>
-              <span className="font-bold text-2xl">{formatAmount(BigInt(totalAmount))}</span>
+                  })}
+                </TableBody>
+              </Table>
             </div>
+          </div>
+        )}
+
+        {mergedTransactions.length === 0 && (
+          <div className="text-center py-12 text-gray-700">
+            <p className="font-bold text-gray-900">No transactions found</p>
+            <p className="mt-2 text-sm font-medium text-gray-600">
+              Try adjusting your filters or search query
+            </p>
           </div>
         )}
       </CardContent>

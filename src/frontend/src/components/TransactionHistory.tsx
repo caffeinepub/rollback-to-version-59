@@ -1,36 +1,35 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGetAllTransactions, useDeleteTransaction } from '../hooks/useQueries';
 import { Transaction, TransactionType } from '../backend';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, ArrowUpCircle, ArrowDownCircle, History, Edit, Trash2, TrendingDown } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Trash2, Edit, History } from 'lucide-react';
 import { format } from 'date-fns';
 import EditTransactionDialog from './EditTransactionDialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { mergeWithDerivedRows, isRealTransaction, isDerivedRow, type DisplayTransaction } from '../utils/derivedTransactions';
-import { getTransactionDirection, getAmountColorFromType, getDerivedRowAmountColor, getIconBgColor, getIconColor } from '../utils/transactionDirection';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { getDerivedRowsForDateRange } from '../utils/derivedTransactions';
+import type { DerivedTransactionRow } from '../utils/derivedTransactions';
+import { getAmountColorFromType, getDerivedRowAmountColor } from '../utils/transactionDirection';
+import { getSessionParameter, clearSessionParameter } from '../utils/urlParams';
 
 export default function TransactionHistory() {
   const { data: transactions, isLoading, error } = useGetAllTransactions();
   const deleteTransaction = useDeleteTransaction();
-  const [filter, setFilter] = useState<'all' | 'cash' | 'upi'>('all');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [deletingTransactionId, setDeletingTransactionId] = useState<bigint | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // Check for archive month filter from Overview
+  const archiveYear = getSessionParameter('overviewArchiveYear');
+  const archiveMonth = getSessionParameter('overviewArchiveMonth');
+  const hasArchiveFilter = archiveYear && archiveMonth;
 
   const formatAmount = (amount: bigint) => {
     return new Intl.NumberFormat('en-IN', {
@@ -40,107 +39,94 @@ export default function TransactionHistory() {
     }).format(Number(amount));
   };
 
-  const getTransactionTypeLabel = (type: TransactionType) => {
-    switch (type) {
-      case TransactionType.cashIn:
-        return 'Cash In';
-      case TransactionType.cashOut:
-        return 'Cash Out';
-      case TransactionType.upiIn:
-        return 'UPI In';
-      case TransactionType.upiOut:
-        return 'UPI Out';
-      case TransactionType.savingsOut:
-        return 'Savings (10%) Out';
-      case TransactionType.deductionsOut:
-        return 'Deductions Out';
-      default:
-        return 'Unknown';
+  const handleDelete = async (id: bigint) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      await deleteTransaction.mutateAsync(id);
     }
   };
 
-  const getTransactionTypeColor = (type: TransactionType) => {
-    switch (type) {
-      case TransactionType.cashIn:
-        return 'bg-green-100 text-green-800 border-2 border-green-300';
-      case TransactionType.cashOut:
-        return 'bg-red-100 text-red-800 border-2 border-red-300';
-      case TransactionType.upiIn:
-        return 'bg-teal-100 text-teal-800 border-2 border-teal-300';
-      case TransactionType.upiOut:
-        return 'bg-orange-100 text-orange-800 border-2 border-orange-300';
-      case TransactionType.savingsOut:
-        return 'bg-purple-100 text-purple-800 border-2 border-purple-300';
-      case TransactionType.deductionsOut:
-        return 'bg-amber-100 text-amber-800 border-2 border-amber-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-2 border-gray-300';
-    }
-  };
-
-  const handleEditClick = (transaction: Transaction) => {
+  const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
-    setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (transactionId: bigint) => {
-    setDeletingTransactionId(transactionId);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (deletingTransactionId !== null) {
-      try {
-        await deleteTransaction.mutateAsync(deletingTransactionId);
-        setIsDeleteDialogOpen(false);
-        setDeletingTransactionId(null);
-      } catch (error) {
-        console.error('Failed to delete transaction:', error);
-      }
-    }
-  };
-
-  // Merge real transactions with derived rows
-  const displayTransactions = transactions ? mergeWithDerivedRows(transactions) : [];
-
-  // Apply filter
-  const filteredTransactions = displayTransactions.filter((row) => {
-    if (filter === 'all') return true;
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
     
-    // Derived rows are always shown in 'all' view only
-    if (isDerivedRow(row)) return false;
-    
-    if (isRealTransaction(row)) {
-      if (filter === 'cash') {
-        return row.transactionType === TransactionType.cashIn || row.transactionType === TransactionType.cashOut;
-      }
-      if (filter === 'upi') {
-        return row.transactionType === TransactionType.upiIn || row.transactionType === TransactionType.upiOut;
-      }
+    if (hasArchiveFilter) {
+      const year = parseInt(archiveYear!);
+      const month = parseInt(archiveMonth!);
+      
+      return transactions.filter((txn) => {
+        const txnDate = new Date(Number(txn.date) / 1_000_000);
+        return txnDate.getFullYear() === year && txnDate.getMonth() + 1 === month;
+      });
     }
-    return true;
-  });
+    
+    // Default: current month only
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    return transactions.filter((txn) => {
+      const txnDate = new Date(Number(txn.date) / 1_000_000);
+      return txnDate.getFullYear() === currentYear && txnDate.getMonth() + 1 === currentMonth;
+    });
+  }, [transactions, hasArchiveFilter, archiveYear, archiveMonth]);
+
+  const derivedRows = useMemo(() => {
+    if (hasArchiveFilter) {
+      const year = parseInt(archiveYear!);
+      const month = parseInt(archiveMonth!);
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+      return getDerivedRowsForDateRange(startDate, endDate);
+    }
+    
+    // Default: current month
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return getDerivedRowsForDateRange(startDate, endDate);
+  }, [hasArchiveFilter, archiveYear, archiveMonth]);
+
+  type MergedRow = { type: 'real'; data: Transaction } | { type: 'derived'; data: DerivedTransactionRow };
+  const mergedTransactions: MergedRow[] = useMemo(() => {
+    const merged: MergedRow[] = [
+      ...filteredTransactions.map((txn) => ({ type: 'real' as const, data: txn })),
+      ...derivedRows.map((row) => ({ type: 'derived' as const, data: row })),
+    ];
+
+    merged.sort((a, b) => {
+      const dateA = a.type === 'real' ? a.data.date : a.data.date;
+      const dateB = b.type === 'real' ? b.data.date : b.data.date;
+      return Number(dateB) - Number(dateA);
+    });
+
+    return merged;
+  }, [filteredTransactions, derivedRows]);
+
+  const handleClearArchiveFilter = () => {
+    clearSessionParameter('overviewArchiveYear');
+    clearSessionParameter('overviewArchiveMonth');
+    window.location.reload();
+  };
 
   if (isLoading) {
     return (
       <Card className="bg-white border border-gray-200 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-2xl border-b border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
           <div className="flex items-center gap-2">
             <History className="h-5 w-5 text-white" />
             <CardTitle className="text-white font-bold">Transaction History</CardTitle>
           </div>
-          <CardDescription className="text-white font-semibold">View all your transactions</CardDescription>
+          <CardDescription className="text-white font-semibold">
+            View and manage all transactions
+          </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between border-b border-gray-200 pb-4">
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-24 bg-gray-200" />
-                  <Skeleton className="h-3 w-32 bg-gray-200" />
-                </div>
-                <Skeleton className="h-6 w-20 bg-gray-200" />
-              </div>
+              <Skeleton key={i} className="h-16 w-full bg-gray-200" />
             ))}
           </div>
         </CardContent>
@@ -151,19 +137,19 @@ export default function TransactionHistory() {
   if (error) {
     return (
       <Card className="bg-white border border-gray-200 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-2xl border-b border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
           <div className="flex items-center gap-2">
             <History className="h-5 w-5 text-white" />
             <CardTitle className="text-white font-bold">Transaction History</CardTitle>
           </div>
-          <CardDescription className="text-white font-semibold">View all your transactions</CardDescription>
+          <CardDescription className="text-white font-semibold">
+            View and manage all transactions
+          </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <Alert variant="destructive" className="bg-red-50 border-red-200 shadow-md">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertTitle className="font-bold text-red-900">Error</AlertTitle>
+          <Alert variant="destructive" className="bg-red-50 border-red-200">
             <AlertDescription className="text-red-800">
-              Failed to load transactions. Please try refreshing the page.
+              Failed to load transaction history. Please try again.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -171,189 +157,134 @@ export default function TransactionHistory() {
     );
   }
 
+  const typeMap: Record<TransactionType, string> = {
+    [TransactionType.cashIn]: 'Cash In',
+    [TransactionType.cashOut]: 'Cash Out',
+    [TransactionType.upiIn]: 'UPI In',
+    [TransactionType.upiOut]: 'UPI Out',
+    [TransactionType.savingsOut]: 'Savings (10%) Out',
+    [TransactionType.deductionsOut]: 'Deductions Out',
+  };
+
   return (
     <>
       <Card className="bg-white border border-gray-200 shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-t-2xl border-b border-gray-200">
+        <CardHeader className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-t-2xl border-b border-gray-200">
           <div className="flex items-center gap-2">
             <History className="h-5 w-5 text-white" />
             <CardTitle className="text-white font-bold">Transaction History</CardTitle>
           </div>
-          <CardDescription className="text-white font-semibold">View all your transactions</CardDescription>
+          <CardDescription className="text-white font-semibold">
+            {hasArchiveFilter
+              ? `Viewing archive: ${format(new Date(parseInt(archiveYear!), parseInt(archiveMonth!) - 1), 'MMMM yyyy')}`
+              : `Viewing current month: ${format(new Date(), 'MMMM yyyy')}`}
+          </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'cash' | 'upi')} className="mb-6">
-            <TabsList className="grid w-full grid-cols-3 bg-gray-100 p-1.5 rounded-xl shadow-md border border-gray-200">
-              <TabsTrigger 
-                value="all" 
-                className="rounded-lg text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200 font-semibold"
+          {hasArchiveFilter && (
+            <div className="mb-4">
+              <Button
+                onClick={handleClearArchiveFilter}
+                variant="outline"
+                size="sm"
+                className="bg-white hover:bg-gray-100 text-gray-900 font-bold border-2 border-gray-300"
               >
-                All
-              </TabsTrigger>
-              <TabsTrigger 
-                value="cash"
-                className="rounded-lg text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200 font-semibold"
-              >
-                Cash
-              </TabsTrigger>
-              <TabsTrigger 
-                value="upi"
-                className="rounded-lg text-gray-700 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200 font-semibold"
-              >
-                UPI
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {!filteredTransactions || filteredTransactions.length === 0 ? (
-            <div className="py-12 text-center text-gray-700">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 shadow-md">
-                <History className="h-8 w-8 text-blue-600" />
-              </div>
-              <p className="font-bold text-gray-900">No transactions found</p>
-              <p className="mt-2 text-sm font-medium text-gray-600">Add your first transaction to get started</p>
+                Back to Current Month
+              </Button>
+            </div>
+          )}
+          {mergedTransactions.length === 0 ? (
+            <div className="text-center py-12 text-gray-700">
+              <History className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="font-bold text-gray-900">No transactions yet</p>
+              <p className="mt-2 text-sm font-medium text-gray-600">
+                Start by adding your first transaction
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredTransactions.map((row, index) => {
-                // Generate unique key
-                const rowKey = isDerivedRow(row) 
-                  ? `derived-${row.derivedType}-${row.date.toString()}`
-                  : `txn-${(row as Transaction).id.toString()}`;
-
-                // Render derived row
-                if (isDerivedRow(row)) {
-                  return (
-                    <div
-                      key={rowKey}
-                      className="flex items-center justify-between border-b-2 border-gray-100 pb-4 last:border-b-0 transition-all duration-200 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl p-3 -mx-3 shadow-sm"
-                    >
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="mt-1">
-                          <div className="rounded-full bg-red-100 p-2.5 shadow-md">
-                            <TrendingDown className="h-5 w-5 text-red-600" />
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-amber-100 text-amber-800 border-2 border-amber-300 font-bold shadow-sm">
-                              {row.derivedType}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-sm text-gray-900 font-semibold italic">
-                            Auto-calculated deduction
-                          </p>
-                          <p className="mt-1 text-xs text-gray-600 font-medium">
-                            {format(new Date(Number(row.date) / 1_000_000), 'PPP')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className={`text-lg font-bold ${getDerivedRowAmountColor()}`}>
-                          {formatAmount(row.amount)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Render real transaction
-                const transaction = row as Transaction;
-                const direction = getTransactionDirection(transaction.transactionType);
-                const amountColorClass = getAmountColorFromType(transaction.transactionType);
-                const iconBgColor = getIconBgColor(direction);
-                const iconColor = getIconColor(direction);
-
-                return (
-                  <div
-                    key={rowKey}
-                    className="flex items-center justify-between border-b-2 border-gray-100 pb-4 last:border-b-0 transition-all duration-200 hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50 rounded-xl p-3 -mx-3 shadow-sm hover:shadow-md"
-                  >
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="mt-1">
-                        <div className={`rounded-full ${iconBgColor} p-2.5 shadow-md`}>
-                          {direction === 'incoming' ? (
-                            <ArrowUpCircle className={`h-5 w-5 ${iconColor}`} />
-                          ) : (
-                            <ArrowDownCircle className={`h-5 w-5 ${iconColor}`} />
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className={`${getTransactionTypeColor(transaction.transactionType)} font-bold shadow-sm`}>
-                            {getTransactionTypeLabel(transaction.transactionType)}
-                          </Badge>
-                        </div>
-                        {transaction.description && (
-                          <p className="mt-1 text-sm text-gray-900 font-semibold">{transaction.description}</p>
-                        )}
-                        <p className="mt-1 text-xs text-gray-600 font-medium">
-                          {format(new Date(Number(transaction.date) / 1_000_000), 'PPP')}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`text-lg font-bold ${amountColorClass}`}>
-                        {formatAmount(transaction.amount)}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditClick(transaction)}
-                        className="h-9 px-3 border-2 border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 text-black font-bold rounded-lg shadow-sm transition-all duration-200 hover:text-black hover:font-extrabold"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(transaction.id)}
-                        disabled={deleteTransaction.isPending}
-                        className="h-9 px-3 border-2 border-red-300 bg-red-50 hover:bg-red-100 hover:border-red-400 text-black font-bold rounded-lg shadow-sm transition-all duration-200 hover:text-black hover:font-extrabold disabled:opacity-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="border-2 border-gray-200 rounded-xl overflow-hidden shadow-md">
+              <div className="max-h-[600px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10">
+                    <TableRow className="bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-500 hover:to-blue-500">
+                      <TableHead className="text-white font-bold">Date</TableHead>
+                      <TableHead className="text-white font-bold">Type</TableHead>
+                      <TableHead className="text-right text-white font-bold">Amount</TableHead>
+                      <TableHead className="text-white font-bold">Description</TableHead>
+                      <TableHead className="text-center text-white font-bold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mergedTransactions.map((row) => {
+                      if (row.type === 'derived') {
+                        const derived = row.data;
+                        const rowKey = `derived-${derived.derivedType}-${derived.date.toString()}`;
+                        return (
+                          <TableRow key={rowKey} className="bg-gradient-to-r from-amber-50 to-yellow-50 hover:from-amber-100 hover:to-yellow-100">
+                            <TableCell className="font-semibold text-gray-900">
+                              {format(new Date(Number(derived.date) / 1_000_000), 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell className="font-bold text-amber-700">{derived.derivedType}</TableCell>
+                            <TableCell className={`text-right font-bold ${getDerivedRowAmountColor()}`}>
+                              {formatAmount(derived.amount)}
+                            </TableCell>
+                            <TableCell className="text-gray-600 italic">Auto-calculated</TableCell>
+                            <TableCell className="text-center text-gray-400 text-sm">-</TableCell>
+                          </TableRow>
+                        );
+                      } else {
+                        const txn = row.data;
+                        const rowKey = `real-${txn.id.toString()}`;
+                        return (
+                          <TableRow key={rowKey} className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-blue-50">
+                            <TableCell className="font-semibold text-gray-900">
+                              {format(new Date(Number(txn.date) / 1_000_000), 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell className="font-semibold text-gray-900">{typeMap[txn.transactionType]}</TableCell>
+                            <TableCell className={`text-right font-bold ${getAmountColorFromType(txn.transactionType)}`}>
+                              {formatAmount(txn.amount)}
+                            </TableCell>
+                            <TableCell className="text-gray-700">{txn.description || '-'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-2">
+                                <Button
+                                  onClick={() => handleEdit(txn)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 font-bold"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => handleDelete(txn.id)}
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={deleteTransaction.isPending}
+                                  className="bg-red-50 hover:bg-red-100 text-red-700 border-red-300 font-bold"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      <EditTransactionDialog
-        transaction={editingTransaction}
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white border-2 border-red-300 shadow-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-black text-gray-900 flex items-center gap-2">
-              <Trash2 className="h-6 w-6 text-red-600" />
-              Delete Transaction
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-base font-semibold text-gray-700">
-              Are you sure you want to delete this transaction? This action cannot be undone and will immediately update all balances and statistics.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-2 border-gray-300 bg-gray-50 hover:bg-gray-100 text-black font-bold rounded-lg shadow-sm transition-all duration-200">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={deleteTransaction.isPending}
-              className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold rounded-lg shadow-md transition-all duration-200 disabled:opacity-50"
-            >
-              {deleteTransaction.isPending ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {editingTransaction && (
+        <EditTransactionDialog
+          transaction={editingTransaction}
+          open={!!editingTransaction}
+          onOpenChange={(open) => !open && setEditingTransaction(null)}
+        />
+      )}
     </>
   );
 }

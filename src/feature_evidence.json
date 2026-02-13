@@ -2,10 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-fix-the-runtime-error-that-causes-the-app-to-render-a-blank-screen-when-the-user-clicks-the-monthly-tab-in-the-dashboard",
-      "featureTitle": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
+      "featureId": "feature-restore-the-custom-non-default-date-picker-styling-in-the-filter-and-daywise-tabs-by-applying-the-app-s-existing-modern-calendar-styles-to-the-calendar-date-picker-ui-used-in-these-tabs",
+      "featureTitle": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
       "files": [
-        "frontend/src/components/MonthlyTransactions.tsx"
+        "frontend/src/components/DaywiseTransactions.tsx",
+        "frontend/src/components/FilterTransactions.tsx"
       ],
       "components": [
         "authorization@3.0.0",
@@ -21,8 +22,8 @@
       "confidence": "high"
     },
     {
-      "featureId": "feature-harden-the-monthly-transactions-ui-against-common-data-shape-issues-so-it-cannot-crash-during-filtering-searching-e-g-missing-empty-description-values-unexpected-transactiontype-values-and-instead-continues-rendering-with-safe-fallbacks",
-      "featureTitle": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+      "featureId": "feature-in-the-monthly-tab-add-an-option-to-view-transactions-year-wise-in-addition-to-the-existing-month-wise-view",
+      "featureTitle": "In the Monthly tab, add an option to view transactions year-wise in addition to the existing month-wise view.",
       "files": [
         "frontend/src/components/MonthlyTransactions.tsx"
       ],
@@ -36,6 +37,27 @@
       ],
       "testIds": [
         "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-the-overview-tab-ensure-the-transaction-listings-opened-from-the-cash-in-upi-in-cash-out-upi-out-and-other-relevant-overview-tiles-show-transactions-for-the-current-month-only-by-default-and-add-an-archive-option-that-lets-the-user-choose-a-specific-month-to-view-older-transactions-for-those-tiles",
+      "featureTitle": "In the Overview tab, ensure the transaction listings opened from the 'Cash In', 'UPI In', 'Cash Out', 'UPI Out', and other relevant overview tiles show transactions for the current month only by default, and add an 'Archive' option that lets the user choose a specific month to view older transactions for those tiles.",
+      "files": [
+        "frontend/src/components/BalanceCards.tsx",
+        "frontend/src/components/TransactionHistory.tsx",
+        "frontend/src/pages/Dashboard.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
       ],
       "confidence": "high"
     }

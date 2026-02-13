@@ -242,6 +242,7 @@ export default function FilterTransactions() {
                     setIsStartCalendarOpen(false);
                   }}
                   initialFocus
+                  className="modern-calendar"
                 />
               </PopoverContent>
             </Popover>
@@ -271,6 +272,7 @@ export default function FilterTransactions() {
                     setIsEndCalendarOpen(false);
                   }}
                   initialFocus
+                  className="modern-calendar"
                 />
               </PopoverContent>
             </Popover>

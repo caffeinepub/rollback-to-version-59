@@ -4,29 +4,56 @@
   "summary": "New project",
   "architectural_notes": [],
   "known_issues": [
-    "Clicking the \"monthly\" tab causes the screen to go blank."
+    "Date picker styling in Filter and Daywise tabs has reverted to default (regression)."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-fix-the-runtime-error-that-causes-the-app-to-render-a-blank-screen-when-the-user-clicks-the-monthly-tab-in-the-dashboard",
-      "title": "Fix the runtime error that causes the app to render a blank screen when the user clicks the \"Monthly\" tab in the Dashboard.",
+      "id": "feature-restore-the-custom-non-default-date-picker-styling-in-the-filter-and-daywise-tabs-by-applying-the-app-s-existing-modern-calendar-styles-to-the-calendar-date-picker-ui-used-in-these-tabs",
+      "title": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-harden-the-monthly-transactions-ui-against-common-data-shape-issues-so-it-cannot-crash-during-filtering-searching-e-g-missing-empty-description-values-unexpected-transactiontype-values-and-instead-continues-rendering-with-safe-fallbacks",
-      "title": "Harden the Monthly Transactions UI against common data-shape issues so it cannot crash during filtering/searching (e.g., missing/empty description values, unexpected transactionType values) and instead continues rendering with safe fallbacks.",
+      "id": "feature-in-the-monthly-tab-add-an-option-to-view-transactions-year-wise-in-addition-to-the-existing-month-wise-view",
+      "title": "In the Monthly tab, add an option to view transactions year-wise in addition to the existing month-wise view.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
+    },
+    {
+      "id": "feature-in-the-overview-tab-ensure-the-transaction-listings-opened-from-the-cash-in-upi-in-cash-out-upi-out-and-other-relevant-overview-tiles-show-transactions-for-the-current-month-only-by-default-and-add-an-archive-option-that-lets-the-user-choose-a-specific-month-to-view-older-transactions-for-those-tiles",
+      "title": "In the Overview tab, ensure the transaction listings opened from the 'Cash In', 'UPI In', 'Cash Out', 'UPI Out', and other relevant overview tiles show transactions for the current month only by default, and add an 'Archive' option that lets the user choose a specific month to view older transactions for those tiles.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
     }
   ],
-  "new_feature_requests": [],
-  "projectName": "Fix blank screen when clicking the Monthly tab",
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Restore/customize date picker styling in Filter and Daywise tabs (currently reverted to default)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Add year-wise view option for transactions in Monthly tab",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Overview tab tiles (Cash in/UPI in/Cash out/UPI out/etc.) show current-month transactions only, with an Archive option to view a selected past month",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Restore date picker styling, add year-wise Monthly view, and add Overview month filter with Archive",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }
