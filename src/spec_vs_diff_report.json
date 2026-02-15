@@ -1,40 +1,47 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-13T17:44:21.869Z",
-  "summary": "REQ-2 (Monthly tab year-wise view) appears implemented via a new month/year viewMode with year selection and client-side filtering. REQ-3 is partially implemented: an Overview Archive month state/session parameter mechanism and current-month default filtering were added in TransactionHistory, but the diff does not provide clear evidence that Overview tiles open a transaction listing that uses this filter, nor that the Archive selection UI is clearly visible/resettable. REQ-1 (restore custom date picker styling in Filter/Daywise) cannot be confirmed from the provided diff evidence.",
+  "generatedAt": "2026-02-15T20:15:45.368Z",
+  "summary": "REQ-3 appears implemented in TransactionHistory via month/year state initialized from session parameters, calendar-popover selection handlers, and month-based filtering. Evidence for the specific Overview Archive UI redesign (REQ-1/REQ-2) is not present in the provided truncated Dashboard diff, so those requirements cannot be verified as implemented from the diff summary alone. An unrelated documentation-style file change introduces/claims features not requested (PIN auth, new transaction types, offline-first behavior).",
   "missing_requirements": [
     {
       "id": "REQ-1",
-      "requirement": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
-      "reason": "FilterTransactions and DaywiseTransactions use the Calendar component, but the diff summary does not show any concrete styling changes (e.g., Calendar props/classNames or restored CSS) that demonstrate the custom modern calendar styling is applied instead of default styling.",
+      "requirement": "Update the Overview Archive UI so the selected month name is displayed inside a clear, tile-like element (within the Archive area) rather than being only part of a long button label.",
+      "reason": "Dashboard UI/rendering changes that would show the month/year inside a distinct tile/card are not visible in the provided (truncated) diff excerpt, so implementation cannot be confirmed from the diff summary.",
       "evidence": [
-        "frontend/src/components/FilterTransactions.tsx",
-        "frontend/src/components/DaywiseTransactions.tsx"
+        "frontend/src/pages/Dashboard.tsx (truncated)"
       ]
     },
     {
-      "id": "REQ-3",
-      "requirement": "From Overview, opening a tile’s transactions shows only the current month by default, and an Archive month selector (month+year) changes the tile listings to the selected month; selection is visible and resettable.",
-      "reason": "The diff shows Archive month state in Dashboard and month filtering in TransactionHistory via session parameters, but does not clearly show that Overview tile interactions actually open a transactions listing that uses TransactionHistory (tiles shown call onTileClick which, per Dashboard snippet, navigates to Add Transaction). Also, the provided truncation does not show the Archive UI control rendering, visibility of the selected month/year, or a reset control in the Overview UI.",
+      "id": "REQ-2",
+      "requirement": "Relocate and redesign the month archive selection control to a more intuitive placement and layout so it does not dominate the Overview tab content while still being easily discoverable (including a clearly associated reset action).",
+      "reason": "The diff excerpt shows state/handlers for archive month and reset, but the actual layout/placement in the Overview tab is not visible in the truncated content, so the UI relocation/redesign and associated reset placement cannot be verified.",
       "evidence": [
-        "frontend/src/pages/Dashboard.tsx",
-        "frontend/src/components/BalanceCards.tsx",
-        "frontend/src/components/TransactionHistory.tsx"
+        "frontend/src/pages/Dashboard.tsx (truncated)"
       ]
     }
   ],
-  "hallucinated_features": [],
-  "confidence": 0.62,
+  "hallucinated_features": [
+    {
+      "description": "Offline PIN-based authentication flow (additional authentication method beyond Internet Identity).",
+      "reason": "Not requested (explicit non-goal: do not add new authentication methods), but the modified summaries file claims a new PIN auth hook/component and an offline PIN authentication flow.",
+      "evidence": [
+        "frontend-file-summaries.txt (truncated)"
+      ]
+    },
+    {
+      "description": "New transaction types (e.g., “Savings (10%) Out” and “Deductions Out”) and related balance calculation changes / offline-first localStorage data management.",
+      "reason": "Not requested (non-goal: do not change transaction data structures or add new transaction types unless required for the UI fixes), but the modified summaries file asserts these features.",
+      "evidence": [
+        "frontend-file-summaries.txt (truncated)"
+      ]
+    }
+  ],
+  "confidence": 0.58,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/components/BalanceCards.tsx",
-    "frontend/src/components/DaywiseTransactions.tsx",
-    "frontend/src/components/FilterTransactions.tsx",
-    "frontend/src/components/MonthlyTransactions.tsx",
     "frontend/src/components/TransactionHistory.tsx",
     "frontend/src/pages/Dashboard.tsx",
-    "frontend/src/utils/derivedTransactions.ts",
     "project_state.json"
   ]
 }

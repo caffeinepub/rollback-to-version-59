@@ -1,12 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Restore the app’s custom date-picker styling and improve month/year-based transaction viewing and filtering in Monthly and Overview tabs.
+**Goal:** Improve the month archive UX on the Overview tab and restore access to older months directly within the History tab.
 
 **Planned changes:**
-- Re-apply the existing modern (non-default) calendar/date-picker styling to the date picker UI used in the Filter and Daywise tabs.
-- In the Monthly tab, add a control to switch between Month view and Year view, with year selection and correct year-scoped transaction display.
-- In the Overview tab, default tile drilldowns (e.g., Cash In/UPI In/Cash Out/UPI Out) to showing only the current month’s transactions, and add an Archive month (month+year) selector to view older months with a clear reset back to current month.
-- Ensure all new/updated user-facing text is in English and that filtering is done client-side using already-fetched transactions.
+- Update the Overview Archive UI to display the selected month/year inside a clear tile/card element, separate from the calendar trigger button, and keep it in sync with month changes.
+- Relocate/redesign the Overview month archive selector to be more compact and intuitively placed (while keeping the reset action clearly tied to the archive controls) so the main Overview content doesn’t get pushed down.
+- Add month/year selection controls to the History tab and apply them to History filtering so users can view older months directly from History, including a clear return-to-current-month action and initial selection from any Overview-provided session parameters.
 
-**User-visible outcome:** Date pickers in Filter and Daywise look styled again (not default), Monthly can be viewed by month or by year, and Overview tile transactions show the current month by default with an Archive option to browse a selected past month.
+**User-visible outcome:** On Overview, the selected archive month is shown prominently in a dedicated tile and the archive controls take up less space; on History, users can pick any month/year to view transactions (and return to the current month) without needing to navigate via Overview.

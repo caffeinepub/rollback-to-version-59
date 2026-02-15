@@ -1,76 +1,65 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Calendar styling restoration, Monthly year view, and Overview archive month filtering",
+  "title": "Improve Archive month selection UI and enable month selection in History",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Restore the app’s modern custom calendar styling for date pickers in Filter and Daywise tabs.",
+      "summary": "Show the selected month/year in the Overview Archive area as a distinct tile-like element separate from the calendar trigger button.",
       "acceptanceCriteria": [
-        "In the Filter tab, the calendar popover uses the custom styled calendar appearance (not the default unstyled calendar).",
-        "In the Daywise tab, the calendar popover uses the same custom styled calendar appearance.",
-        "No functional regressions: selecting a date (or start/end date range) still updates the results as before."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/FilterTransactions.tsx",
-          "operation": "modify",
-          "description": "Apply the existing global modern calendar styling by ensuring the shadcn-ui Calendar rendered in the Start Date and End Date popovers uses the `modern-calendar` styling hook (e.g., via the Calendar component’s className / wrapper class passed from this component). Verify the component's usage instructions before implementing."
-        },
-        {
-          "path": "frontend/src/components/DaywiseTransactions.tsx",
-          "operation": "modify",
-          "description": "Apply the existing global modern calendar styling by ensuring the shadcn-ui Calendar rendered in the Daywise date popover uses the `modern-calendar` styling hook (e.g., via the Calendar component’s className / wrapper class passed from this component). Verify the component's usage instructions before implementing."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Add a Year view option to the Monthly tab to view transactions year-wise alongside the existing Month view.",
-      "acceptanceCriteria": [
-        "Monthly tab includes a clear control to switch between 'Month' view and 'Year' view (English labels).",
-        "In 'Year' view, the user can select a year and see transactions limited to that year.",
-        "Type filtering and search continue to work in Year view (or are clearly disabled with an explanation if not supported); the UI must not show incorrect mixed-year results.",
-        "Switching between Month and Year view does not break the existing month picker behavior."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/MonthlyTransactions.tsx",
-          "operation": "modify",
-          "description": "Add a view-mode control (Month/Year) and implement a Year view that filters already-fetched transactions to the selected year only, while keeping the existing type filtering and text search consistent. Preserve the existing Month picker behavior in Month view. Use existing shadcn-ui controls (e.g., Select/Button/Popover) to keep UI consistent, and ensure any derived-row logic is not incorrectly mixed across the year (either adapt it correctly or clearly scope derived rows to Month view only with English explanatory text). Verify the component's usage instructions before implementing."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "In Overview, default tile drill-down listings to current month and add an Archive month selector to view older months (client-side filtering only).",
-      "acceptanceCriteria": [
-        "From Overview, opening a tile’s transactions (e.g., Cash In) shows only the current month’s transactions by default.",
-        "Overview includes an 'Archive' UI control (English text) that allows selecting a month (month + year).",
-        "When an Archive month is selected, opening any relevant Overview tile shows transactions filtered to the selected month instead of the current month.",
-        "The archive selection is clearly visible to the user (e.g., shows selected month/year) and can be reset back to the current month view.",
-        "No backend changes are required to filter; filtering is performed client-side on the already-fetched transactions."
+        "On the Overview tab, the Archive section shows the selected month/year prominently inside a tile/card element (e.g., a bordered/filled pill or mini-card) that is visually distinct from the calendar trigger button.",
+        "The month/year shown in the tile updates immediately when the user selects a different month.",
+        "User-facing text remains in English."
       ],
       "file_operations": [
         {
           "path": "frontend/src/pages/Dashboard.tsx",
           "operation": "modify",
-          "description": "Add and manage Overview ‘Archive’ month state (defaulting to current month), render an Archive month+year selector UI within the Overview tab, show the currently active month filter label, and provide a reset-to-current-month action. Wire this selection into Overview tile drill-down behavior (e.g., by passing props/state down to the overview tiles component or by storing a lightweight navigation parameter). Use shadcn-ui Popover/Calendar/Button/Select primitives as needed (compose only; do not modify files under frontend/src/components/ui). Verify the component's usage instructions before implementing."
+          "description": "Update the Overview > Archive UI to render the selected month/year inside a dedicated, tile-like element within the Archive card (separate from the calendar trigger Button), and keep it in sync with the existing archiveMonth state so it updates immediately after Calendar selection."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Reposition and compact the Overview month archive selector and its reset action so it is intuitive and does not dominate the page.",
+      "acceptanceCriteria": [
+        "The archive month selector (calendar trigger) is placed in a more compact, intuitive position within the Overview tab (e.g., aligned to the right of the Archive header, or otherwise reducing vertical space).",
+        "The reset action remains available when viewing an archived month and is clearly associated with the archive controls.",
+        "The BalanceCards grid remains fully visible without excessive scrolling on typical viewport sizes."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "modify",
+          "description": "Redesign the Archive section layout to be more compact (e.g., align controls to the right of the Archive header, remove the full-width selector button behavior, and group the calendar trigger + selected-month tile + reset action together) to reduce vertical space and keep BalanceCards visible with minimal scrolling."
         },
         {
-          "path": "frontend/src/components/BalanceCards.tsx",
+          "path": "frontend/src/index.css",
           "operation": "modify",
-          "description": "Update Overview tile click handling to include the active Overview month filter (current month by default, archive month when selected) when navigating/opening the tile’s transaction listing, so the listing can filter client-side accordingly. Ensure this applies to Cash In, UPI In, Cash Out, UPI Out, and other relevant tiles. Verify the component's usage instructions before implementing."
-        },
+          "description": "If needed to support the redesigned compact Archive controls, add/adjust minimal global utility styles (without touching frontend/src/components/ui) to ensure consistent spacing/appearance for the new tile-like month display and compact control alignment."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Add in-page month/year selection controls to History and apply them to History filtering, using Overview archive selection as initial state when present.",
+      "acceptanceCriteria": [
+        "In the History tab (TransactionHistory), provide an in-page control to select a month/year to view (can reuse the calendar-popover pattern used in Dashboard).",
+        "Selecting an older month in History updates the displayed transactions for that month immediately (no full page reload).",
+        "A clear action exists to return to the current month from an archived month view.",
+        "If Overview has already set session parameters (overviewArchiveYear/overviewArchiveMonth), History uses them as the initial selection when opening the History tab.",
+        "By default (no archive selection), History continues to show the current month."
+      ],
+      "file_operations": [
         {
           "path": "frontend/src/components/TransactionHistory.tsx",
           "operation": "modify",
-          "description": "Add support for an optional month+year filter when the transaction listing is opened from Overview tiles, defaulting to current month when the source is Overview and no archive override is provided. Implement the filter purely client-side over already-fetched transactions and ensure it does not affect unrelated views/tabs. Verify the component's usage instructions before implementing."
+          "description": "Implement a month/year selection control inside TransactionHistory using the existing Popover + Calendar UI pattern (importing the same shadcn/ui components already used elsewhere, without editing frontend/src/components/ui). Initialize History's selected month from sessionStorage (overviewArchiveYear/overviewArchiveMonth) when present; otherwise default to the current month. Update filtering and derived-row date range calculations to use the in-page selected month state, and replace the current reload-based 'Back to Current Month' behavior with a state/session clear that updates results immediately."
         },
         {
           "path": "frontend/src/utils/urlParams.ts",
           "operation": "modify",
-          "description": "Extend existing URL/session param helpers to support passing and reading an optional Overview month+year filter (and an explicit reset/clear path), used only to wire Overview tile navigation to the transaction listing filter without backend changes."
+          "description": "If necessary to support History’s month selection persistence/initialization without reloads, extend or reuse the existing session parameter helpers so TransactionHistory can reliably read, write, and clear overviewArchiveYear/overviewArchiveMonth while keeping behavior consistent across tab navigation."
         }
       ]
     }

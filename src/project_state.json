@@ -1,32 +1,32 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "New project",
+  "summary": "App with month-based tiles and an archive/history view; user requests UI tweaks and a fix to show older months' history.",
   "architectural_notes": [],
   "known_issues": [
-    "Date picker styling in Filter and Daywise tabs has reverted to default (regression)."
+    "History cannot be seen for old months (older months' history not visible/accessible)."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-restore-the-custom-non-default-date-picker-styling-in-the-filter-and-daywise-tabs-by-applying-the-app-s-existing-modern-calendar-styles-to-the-calendar-date-picker-ui-used-in-these-tabs",
-      "title": "Restore the custom (non-default) date picker styling in the Filter and Daywise tabs by applying the app’s existing modern calendar styles to the calendar/date-picker UI used in these tabs.",
+      "id": "feature-update-the-overview-archive-ui-so-the-selected-month-name-is-displayed-inside-a-clear-tile-like-element-within-the-archive-area-rather-than-being-only-part-of-a-long-button-label",
+      "title": "Update the Overview Archive UI so the selected month name is displayed inside a clear, tile-like element (within the Archive area) rather than being only part of a long button label.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-in-the-monthly-tab-add-an-option-to-view-transactions-year-wise-in-addition-to-the-existing-month-wise-view",
-      "title": "In the Monthly tab, add an option to view transactions year-wise in addition to the existing month-wise view.",
+      "id": "feature-relocate-and-redesign-the-month-archive-selection-control-to-a-more-intuitive-placement-and-layout-so-it-does-not-dominate-the-overview-tab-content-while-still-being-easily-discoverable",
+      "title": "Relocate and redesign the month archive selection control to a more intuitive placement and layout so it does not dominate the Overview tab content while still being easily discoverable.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-in-the-overview-tab-ensure-the-transaction-listings-opened-from-the-cash-in-upi-in-cash-out-upi-out-and-other-relevant-overview-tiles-show-transactions-for-the-current-month-only-by-default-and-add-an-archive-option-that-lets-the-user-choose-a-specific-month-to-view-older-transactions-for-those-tiles",
-      "title": "In the Overview tab, ensure the transaction listings opened from the 'Cash In', 'UPI In', 'Cash Out', 'UPI Out', and other relevant overview tiles show transactions for the current month only by default, and add an 'Archive' option that lets the user choose a specific month to view older transactions for those tiles.",
+      "id": "feature-fix-the-history-tab-so-users-can-view-transaction-history-for-older-months-directly-from-the-history-screen-without-requiring-a-tile-click-from-overview-by-providing-month-year-selection-controls-and-applying-them-to-the-history-filtering-logic",
+      "title": "Fix the History tab so users can view transaction history for older months directly from the History screen (without requiring a tile click from Overview) by providing month/year selection controls and applying them to the History filtering logic.",
       "reqIds": [
         "REQ-3"
       ],
@@ -36,24 +36,24 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Restore/customize date picker styling in Filter and Daywise tabs (currently reverted to default)",
+      "summary": "Display the month name inside each respective month tile.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Add year-wise view option for transactions in Monthly tab",
+      "summary": "Move/relocate the month archive option to a more appropriate (better) place in the UI.",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-3",
-      "summary": "Overview tab tiles (Cash in/UPI in/Cash out/UPI out/etc.) show current-month transactions only, with an Archive option to view a selected past month",
+      "summary": "Fix: history for old months is not visible/accessible; ensure older months' history can be seen.",
       "reqIds": [],
       "status": "pending"
     }
   ],
-  "projectName": "Restore date picker styling, add year-wise Monthly view, and add Overview month filter with Archive",
+  "projectName": "Improve month archive UI and restore access to older months in History",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

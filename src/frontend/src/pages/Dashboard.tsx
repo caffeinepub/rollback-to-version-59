@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Archive } from 'lucide-react';
+import { CalendarIcon, Archive, X } from 'lucide-react';
 import { format } from 'date-fns';
 import BalanceCards from '../components/BalanceCards';
 import TransactionForm from '../components/TransactionForm';
@@ -125,45 +125,47 @@ export default function Dashboard() {
                       Archive
                     </Label>
                   </div>
-                  {isArchiveMode && !isCurrentMonth && (
-                    <Button
-                      onClick={handleResetArchive}
-                      variant="outline"
-                      size="sm"
-                      className="bg-white hover:bg-gray-100 text-gray-900 font-bold border-2 border-gray-300"
-                    >
-                      Reset to Current Month
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center gap-4">
-                  <Popover open={isArchiveCalendarOpen} onOpenChange={setIsArchiveCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full md:w-auto justify-start text-left font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 text-blue-600" />
-                        {isArchiveMode && !isCurrentMonth
-                          ? `Archive: ${format(archiveMonth, 'MMMM yyyy')}`
-                          : `Current Month: ${format(currentDate, 'MMMM yyyy')}`}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={archiveMonth}
-                        onSelect={handleArchiveMonthSelect}
-                        initialFocus
-                        className="modern-calendar"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  {isArchiveMode && !isCurrentMonth && (
-                    <div className="text-sm font-semibold text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-300">
-                      Viewing archived month
+                  <div className="flex items-center gap-3">
+                    {/* Selected Month Tile */}
+                    <div className="px-4 py-2 bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold rounded-lg shadow-md border-2 border-teal-600">
+                      {format(archiveMonth, 'MMMM yyyy')}
                     </div>
-                  )}
+                    
+                    {/* Calendar Trigger */}
+                    <Popover open={isArchiveCalendarOpen} onOpenChange={setIsArchiveCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="font-semibold border-2 border-gray-300 bg-white hover:bg-gray-50 text-black rounded-lg shadow-sm"
+                        >
+                          <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-white border-2 border-gray-300 shadow-xl" align="end">
+                        <Calendar
+                          mode="single"
+                          selected={archiveMonth}
+                          onSelect={handleArchiveMonthSelect}
+                          initialFocus
+                          className="modern-calendar"
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Reset Button */}
+                    {isArchiveMode && !isCurrentMonth && (
+                      <Button
+                        onClick={handleResetArchive}
+                        variant="outline"
+                        size="sm"
+                        className="bg-white hover:bg-gray-100 text-gray-900 font-bold border-2 border-gray-300"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reset
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
